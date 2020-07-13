@@ -10,10 +10,10 @@
     "esm": "^3.2.25",
     "fs": "0.0.1-security",
     "hasha": "^5.1.0",
+    "imagemin-webp": "^6.0.0",
     "is-docker": "^2.0.0",
     "node-fetch": "^2.6.0",
     "path": "^0.12.7",
-    "sharp": "latest",
     "url": "^0.11.0"
   },
   "devDependencies": {},

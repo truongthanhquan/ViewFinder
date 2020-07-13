@@ -1,5 +1,5 @@
 import {DEBUG} from '../common.js';
-import sharp from 'sharp';
+import imageminWebP from 'imagemin-webp';
 
 const MAX_FRAMES = 3; /* 1, 2, 4 */
 const MIN_TIME_BETWEEN_SHOTS = 150; /* 20, 40, 100, 250, 500 */
@@ -147,11 +147,15 @@ export async function forExport({frame, connection}) {
   // FIXME : CPU issues
   img = Buffer.from(img, 'base64');
   if ( ! connection.isSafari ) {
-    img = await sharp(img).webp(WEBP_OPTS).toBuffer();
+    img = await toWebP(img, WEBP_OPTS).toBuffer();
   }
   img = img.toString('base64');
   frame.img = img;
   return frame;
+}
+
+async function toWebP(img, opts) {
+  return imageminWebP(opts)(img);
 }
 
 

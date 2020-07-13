@@ -147,7 +147,7 @@ export async function forExport({frame, connection}) {
   // FIXME : CPU issues
   img = Buffer.from(img, 'base64');
   if ( ! connection.isSafari ) {
-    img = await toWebP(img, WEBP_OPTS).toBuffer();
+    img = await toWebP(img, WEBP_OPTS);
   }
   img = img.toString('base64');
   frame.img = img;
@@ -155,7 +155,8 @@ export async function forExport({frame, connection}) {
 }
 
 async function toWebP(img, opts) {
-  return imageminWebP(opts)(img);
+  const result = await imageminWebP(opts)(img);
+  return result;
 }
 
 

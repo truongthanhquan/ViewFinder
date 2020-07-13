@@ -1,5 +1,5 @@
 *.node
-BrowserGap
+BrowserGap*
 typetests
 vim.exe.stackdump
 *.stackdump

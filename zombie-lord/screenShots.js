@@ -1,5 +1,5 @@
 import {DEBUG} from '../common.js';
-import imageminWebP from 'imagemin-webp';
+import imageminWebP from './customImageminWebP.js';
 
 const MAX_FRAMES = 3; /* 1, 2, 4 */
 const MIN_TIME_BETWEEN_SHOTS = 150; /* 20, 40, 100, 250, 500 */

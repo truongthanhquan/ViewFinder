@@ -133,7 +133,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
   });
 
   {
-    const {doShot, queueTailShot} = makeCamera(connection);
+    const {doShot, queueTailShot} = await makeCamera(connection);
     connection.doShot = doShot;
     connection.queueTailShot = queueTailShot;
   }

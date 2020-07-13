@@ -1,5 +1,7 @@
+import fs from 'fs';
+import path from 'path';
+
 import {DEBUG} from '../common.js';
-import imageminWebP from './customImageminWebP.js';
 
 const MAX_FRAMES = 3; /* 1, 2, 4 */
 const MIN_TIME_BETWEEN_SHOTS = 150; /* 20, 40, 100, 250, 500 */
@@ -11,7 +13,8 @@ const KEYS = [
 ];
 // image formats for capture depend on what the client can accept
   const WEBP_FORMAT = {
-    format: "png"
+    format: "jpeg",
+    quality: 70
   };
   const SAFARI_FORMAT = {
     format: "jpeg",
@@ -39,7 +42,18 @@ const KEYS = [
     quality: 42,
   };
 
-export function makeCamera(connection) {
+  let cwebp;
+
+export async function makeCamera(connection) {
+  /**
+  const cwebp_wasm = fs.readFileSync(path.resolve('libwebp', 'cwebp.wasm'));
+  cwebp = await WebAssembly.instantiate(new Uint8Array(cwebp_wasm), {imports:{
+    ['global.Math']: Math, 
+  }}).then(res => res.instance.exports);
+
+  console.log({cwebp});
+  **/
+
   let shooting = false;
   let frameId = 1;
   let lastHash;
@@ -155,7 +169,7 @@ export async function forExport({frame, connection}) {
 }
 
 async function toWebP(img, opts) {
-  const result = await imageminWebP(opts)(img);
+  const result = img;
   return result;
 }
 

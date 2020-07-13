@@ -16,7 +16,8 @@
     "tsc-inject": "tsc --target ES2020 --checkJs --allowJs --outFile typetests/inject.js --module System zombie-lord/injections/**/*.js decs.d.ts",
     "tsc-public": "tsc --target ES2020 --checkJs --allowJs --outFile typetests/inject.js --module System public/*.js decs.d.ts",
     "tsc-check": "./tsc-check.sh",
-    "check": "rm -f public/*bundle*.js && ( npm run lint || : ) && npm run tsc-check"
+    "check": "rm -f public/*bundle*.js && ( npm run lint || : ) && npm run tsc-check",
+    "build": "npx webpack server.js && nexe -i BrowserGap.js -r \"./zombie-lord/injections/**/*\" -r \"./plugins/**/*.js\""
   },
   "repository": {
     "type": "git",
@@ -77,10 +78,13 @@
     "babel-plugin-external-helpers": "^6.22.0",
     "eslint": "^7.4.0",
     "nexe": "^3.3.7",
+    "node-loader": "^1.0.0",
     "rollup-plugin-babel": "^4.4.0",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-node-resolve": "^5.2.0",
     "typescript": "^3.9.6",
+    "webpack": "^4.43.0",
+    "webpack-cli": "^3.3.12",
     "whatwg-fetch": "^3.2.0"
   }
 }

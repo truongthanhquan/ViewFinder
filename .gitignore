@@ -1,3 +1,4 @@
+*.node
 BrowserGap
 typetests
 vim.exe.stackdump

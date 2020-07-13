@@ -1,4 +1,5 @@
-BrowserGap
+*.node
+BrowserGap.*
 typetests
 public/fonts
 public/old

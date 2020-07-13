@@ -1,6 +1,7 @@
 #!/bin/bash
 
 rm BrowserGap
+rm BrowserGap.js
 rm *.node
 rm -rf typetests
 rm -rf node_modules

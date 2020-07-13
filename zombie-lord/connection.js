@@ -901,8 +901,8 @@ function getFileFromURL(url) {
   const nodes = pathname.split('/');
   let lastNode = nodes.pop();
   if ( ! lastNode ) {
-    console.warn({fileNameError: Error(`URL cannot be parsed to get filename`)});
-    return `download${Date.now()}`;
+    DEBUG.val && console.warn({fileNameError: Error(`URL cannot be parsed to get filename`)});
+    return `download_${url.hostname}_${nodes.join('_')}`;
   }
   return unescape(lastNode);
 }

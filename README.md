@@ -2,7 +2,8 @@
 
 ## News
 
-- [New Binary releases!](https://github.com/dosyago/BrowserGap/releases/latest). This is the first time BG has been turned into binary executables. Platforms available: Mac, Win, and Nix.
+- [New Binary releases!](https://github.com/dosyago/BrowserGap/releases/latest). Binaries now come with default args. Platforms available: Mac, Win, and Nix.
+- Run via `npx remoteview` or `npm i -g remoteview`
 - New Docker Hub image with latest changes: [dosyago/browsergapce:2.0](https://hub.docker.com/r/dosyago/browsergapce)
 - Latest update: July 13 2020
 

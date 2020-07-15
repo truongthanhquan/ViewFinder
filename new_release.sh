@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~/.profile
+source ~/.nvm/nvm.sh
 nvm use v12.10.0
 
 description=$1

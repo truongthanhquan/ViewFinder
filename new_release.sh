@@ -17,6 +17,7 @@ chmod +x BrowserGap.js
 gpush minor "New release"
 
 latest_tag=$(git describe --abbrev=0)
+
 grel release -u dosyago -r BrowserGap --tag $latest_tag --name "New release" --description '"'"$description"'"'
 grel upload -u dosyago -r BrowserGap --tag $latest_tag --name "BrowserGap.exe" --file BrowserGap.exe
 grel upload -u dosyago -r BrowserGap --tag $latest_tag --name "BrowserGap.macos" --file BrowserGap.macos

@@ -11,6 +11,9 @@ module.exports = {
   node: {
     __dirname: false
   },
+  externals: {
+    sharp: 'commonjs sharp'
+  },
   plugins: [
     new webpack.BannerPlugin({ banner: "#!/usr/bin/env node", raw: true }),
   ],

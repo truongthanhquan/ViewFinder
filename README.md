@@ -1,11 +1,21 @@
 # :satellite: [BrowserGap](https://github.com/dosyago/BrowserGap) [![docker pulls](https://img.shields.io/docker/pulls/dosyago/browsergapce)](https://hub.docker.com/r/dosyago/browsergapce) ![version](https://img.shields.io/npm/v/remoteview) [![npm downloads](https://img.shields.io/npm/dt/remoteview)](https://www.npmjs.com/package/remoteview) [![binary downloads](https://img.shields.io/github/downloads/dosyago/BrowserGap/total?label=binary%20downloads)](https://github.com/dosyago/BrowserGap/releases/latest)
 
+- Live stream the browser remotely.
+- Perform remote browser isolation for security and automation.
+- Run your browsers anywhere and connect to them from anywhera.
+- Isolate your network from the risks of the public internet by running browsers in a remote machine.
+- Connect to Chrome headless with a Browser User Interface
+
 ## News
 
+- **July 18 2020** 
+  - New client web app bundling improves load speed of browser UI.
+  - Remove UI icons from .gitignore because they're no longer added on install, but instead are always in the repo.
+  - New [docker builds](https://hub.docker.com/r/dosyago/browsergapce) and [releases](https://github.com/dosyago/BrowserGap/releases/latest) incorporating these changes. 
 - **July 18 2020** Bug fix on master: Remove UI icons from .gitignore because they're no longer added on install, but instead are always in the repo.
 - **July 15 2020** Run or install as global via `npx remoteview@latest` or `npm i -g remoteview@latest` (**Working!**)
 - **July 14 2020** [New Binary releases!](https://github.com/dosyago/BrowserGap/releases/latest). Binaries now come with default args. Platforms available: Mac, Win, and Nix.
-- **July 13 2020** New Docker Hub image with latest changes: [dosyago/browsergapce:2.0](https://hub.docker.com/r/dosyago/browsergapce)
+- **July 13 2020** New Docker Hub image with latest changes: [dosyago/browsergapce:2.1](https://hub.docker.com/r/dosyago/browsergapce)
 
 ## About
 
@@ -132,6 +142,9 @@ For [business inquiries, mail me](mailto:cris@dosycorp.com?subject=BrowserGap&bo
 
 First set up the machine with git, and node (including nvm and npm) using the below:
 
+If you want to speed up install and it hangs on `processing triggers for man-db` you can remove all your man pages (**WARNING**), with:
+`sudo apt-get remove -y --purge man-db`
+
 ```sh
 sudo apt update && sudo apt -y upgrade
 sudo apt install -y curl git wget
@@ -146,6 +159,7 @@ source $HOME/.profile
 source $HOME/.nvm/nvm.sh
 nvm install --lts
 sudo apt autoremove
+npm i -g serve nodemon pm2 npm npx
 sudo npm i -g serve nodemon pm2 npm npx
 ```
 
@@ -165,7 +179,7 @@ npm start
 You can pull an existing image from docker hub (already [![docker pulls](https://img.shields.io/docker/pulls/dosyago/browsergapce)](https://hub.docker.com/r/dosyago/browsergapce))
 
 ```sh
-docker pull dosyago/browsergapce:2.0
+docker pull dosyago/browsergapce:2.1
 ```
 
 And then run it 

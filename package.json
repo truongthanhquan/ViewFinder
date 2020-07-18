@@ -11,7 +11,6 @@
     "dev": "node-dev --inspect=127.0.0.1:8111 index.js",
     "start": "bash ./start.sh",
     "postinstall": "bash ./postinstall.sh",
-    "prestart": "bash ./make_views.sh",
     "init": "bash ./reinit_after_restart.sh",
     "clean": "./clean.sh",
     "lint": "./gglint.sh",

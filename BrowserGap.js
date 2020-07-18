@@ -215,7 +215,7 @@ var callSiteToString=__webpack_require__(58).callSiteToString,eventListenerCount
  * ws: a node.js websocket client
  * Copyright(c) 2011 Einar Otto Stangvik <einaros@gmail.com>
  * MIT Licensed
- */const l=t(91);l.Server=t(231),l.Receiver=t(94),l.Sender=t(96),e.exports=l},function(e,n){e.exports=require("sharp")},function(e,n,t){"use strict";const l=t(109);l.Server=t(265),l.Receiver=t(111),l.Sender=t(113),e.exports=l},function(e,n,t){"use strict";
+ */const l=t(91);l.Server=t(231),l.Receiver=t(94),l.Sender=t(96),e.exports=l},function(e,n){e.exports=sharp},function(e,n,t){"use strict";const l=t(109);l.Server=t(265),l.Receiver=t(111),l.Sender=t(113),e.exports=l},function(e,n,t){"use strict";
 /*!
  * cookie-parser
  * Copyright(c) 2014 TJ Holowaychuk

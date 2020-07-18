@@ -1,4 +1,8 @@
 BrowserGap
+Browsergap.exe
+Browsergap.macos
+Browsergap.nix*
+Browsergap.win*
 typetests
 public/fonts
 public/old

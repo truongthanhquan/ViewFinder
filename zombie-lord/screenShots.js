@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 import {DEBUG} from '../common.js';
 
 const MAX_FRAMES = 3; /* 1, 2, 4 */
@@ -38,11 +35,13 @@ const KEYS = [
       }
     }
   };
+  /**
   const WEBP_OPTS = {
     quality: 42,
   };
+  **/
 
-  let cwebp;
+  //let cwebp;
 
 export async function makeCamera(connection) {
   /**
@@ -156,21 +155,13 @@ export async function makeCamera(connection) {
   }
 }
 
-export async function forExport({frame, connection}) {
+export async function forExport({frame}) {
   let {img} = frame;
-  // FIXME : CPU issues
   img = Buffer.from(img, 'base64');
-  if ( ! connection.isSafari ) {
-    img = await toWebP(img, WEBP_OPTS);
-  }
   img = img.toString('base64');
   frame.img = img;
   return frame;
 }
 
-async function toWebP(img, opts) {
-  const result = img;
-  return result;
-}
 
 

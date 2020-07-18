@@ -14,12 +14,12 @@ module.exports = {
   plugins: [
     new webpack.BannerPlugin({ banner: "#!/usr/bin/env node", raw: true }),
   ],
-	module: {
-		rules: [
-			{
-				test: /\.node$/,
-				loader: 'node-loader',
-			},
-		],
-	},
+  module: {
+    rules: [
+      {
+        test: /\.node$/,
+        loader: 'node-loader',
+      },
+    ],
+  },
 };

@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import {fileURLToPath} from 'url';
 
 import branchName from 'current-git-branch';
 import {FRAME_CONTROL, IMAGE_FORMAT} from './public/translateVoodooCRDP.js';

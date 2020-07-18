@@ -1,5 +1,8 @@
 BrowserGap
-BrowserGap*
+BrowserGap.exe
+BrowserGap.nix*
+BrowserGap.macos
+BrowserGap.win*
 typetests
 vim.exe.stackdump
 *.stackdump

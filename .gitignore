@@ -1,4 +1,4 @@
-*.node
+BrowserGap
 BrowserGap*
 typetests
 vim.exe.stackdump
@@ -11,6 +11,6 @@ sslcert/*
 .*.swp
 isolate*
 public/bundle*.js
-public/meta_bundle*
+public/meta_bundle*.js
 nohup.out
 

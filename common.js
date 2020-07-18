@@ -6,6 +6,7 @@ import branchName from 'current-git-branch';
 import {FRAME_CONTROL, IMAGE_FORMAT} from './public/translateVoodooCRDP.js';
 
 export const DEBUG = {
+  mode: 'prod',
   goSecure: true,
   noAudio: false,
   legacyShots: !FRAME_CONTROL,      /* until enableBeginFrameControl can be set for any target

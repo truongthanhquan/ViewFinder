@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import {URL} from 'url';
 import {unescape} from 'querystring';
-import {DEBUG,sleep,SECURE_VIEW_SCRIPT} from '../common.js';
+import {APP_ROOT, DEBUG,sleep,SECURE_VIEW_SCRIPT} from '../common.js';
 import {username} from '../args.js';
 import {WorldName} from '../public/translateVoodooCRDP.js';
 import {makeCamera} from './screenShots.js';
@@ -15,17 +15,17 @@ import {fileChoosers} from '../ws-server.js';
 //import {blockSites,onInterceptRequest as whitelistIntercept} from './demoblocking/blockSites.js';
 
 // standard injections
-const selectDropdownEvents = fs.readFileSync(path.join(__dirname, 'injections', 'selectDropdownEvents.js')).toString();
-const keysCanInputEvents = fs.readFileSync(path.join(__dirname, 'injections', 'keysCanInput.js')).toString();
-const textComposition = fs.readFileSync(path.join(__dirname, 'injections', 'textComposition.js')).toString();
-const favicon = fs.readFileSync(path.join(__dirname, 'injections', 'favicon.js')).toString();
-const elementInfo = fs.readFileSync(path.join(__dirname, 'injections', 'elementInfo.js')).toString();
-const scrollNotify = fs.readFileSync(path.join(__dirname, 'injections', 'scrollNotify.js')).toString();
-const botDetectionEvasions = fs.readFileSync(path.join(__dirname, 'injections', 'pageContext', 'botDetectionEvasions.js')).toString();
+const selectDropdownEvents = fs.readFileSync(path.join(APP_ROOT, 'zombie-lord', 'injections', 'selectDropdownEvents.js')).toString();
+const keysCanInputEvents = fs.readFileSync(path.join(APP_ROOT, 'zombie-lord', 'injections', 'keysCanInput.js')).toString();
+const textComposition = fs.readFileSync(path.join(APP_ROOT, 'zombie-lord', 'injections', 'textComposition.js')).toString();
+const favicon = fs.readFileSync(path.join(APP_ROOT, 'zombie-lord', 'injections', 'favicon.js')).toString();
+const elementInfo = fs.readFileSync(path.join(APP_ROOT, 'zombie-lord', 'injections', 'elementInfo.js')).toString();
+const scrollNotify = fs.readFileSync(path.join(APP_ROOT, 'zombie-lord', 'injections', 'scrollNotify.js')).toString();
+const botDetectionEvasions = fs.readFileSync(path.join(APP_ROOT, 'zombie-lord', 'injections', 'pageContext', 'botDetectionEvasions.js')).toString();
 
 // plugins injections
-const appMinifier = fs.readFileSync(path.join(__dirname, '..', 'plugins', 'appminifier', 'injections.js')).toString();
-const projector = fs.readFileSync(path.join(__dirname, '..', 'plugins', 'projector', 'injections.js')).toString();
+const appMinifier = fs.readFileSync(path.join(APP_ROOT, 'plugins', 'appminifier', 'injections.js')).toString();
+const projector = fs.readFileSync(path.join(APP_ROOT, 'plugins', 'projector', 'injections.js')).toString();
 
 // just concatenate the scripts together and do one injection
 // but for debugging better to add each separately
@@ -133,7 +133,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
   });
 
   {
-    const {doShot, queueTailShot} = makeCamera(connection);
+    const {doShot, queueTailShot} = await makeCamera(connection);
     connection.doShot = doShot;
     connection.queueTailShot = queueTailShot;
   }
@@ -901,8 +901,8 @@ function getFileFromURL(url) {
   const nodes = pathname.split('/');
   let lastNode = nodes.pop();
   if ( ! lastNode ) {
-    console.warn({fileNameError: Error(`URL cannot be parsed to get filename`)});
-    return `download${Date.now()}`;
+    DEBUG.val && console.warn({fileNameError: Error(`URL cannot be parsed to get filename`)});
+    return `download_${url.hostname}_${nodes.join('_')}`;
   }
   return unescape(lastNode);
 }

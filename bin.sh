@@ -11,4 +11,4 @@ cd parec-server
 node -r esm index.js 8003 &
 BGPID=$!
 cd ..
-node-dev index.js 5005 8005 xxxcookie $username token2
+node index.js 5005 8005 xxxcookie $username token2

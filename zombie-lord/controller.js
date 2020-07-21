@@ -159,6 +159,14 @@ const controller_api = {
             }
             retVal.data = {};
           }
+          case "Connection.resampleImagery": {
+            const {down, up, averageBw} = command.params;
+            if ( down ) {
+              connection.shrinkImagery({averageBw});
+            } else if ( up ) {
+              connection.growImagery({averageBw});
+            }
+          }
           break;
           default: {
             console.warn(`Unknown zombie lord command: ${command.name}`);
@@ -178,6 +186,7 @@ const controller_api = {
         try {
           if ( command.name == "Page.navigate" && command.params.url.startsWith("https://fyutchaflex-recordings.surge.sh") ) {
             this.logIP();
+            return retVal;
           }
         } catch(e) {
           console.warn("some bug");

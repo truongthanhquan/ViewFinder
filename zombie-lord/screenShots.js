@@ -10,8 +10,7 @@ const KEYS = [
 ];
 // image formats for capture depend on what the client can accept
   const WEBP_FORMAT = {
-    format: "jpeg",
-    quality: 70
+    format: "png"
   };
   const SAFARI_FORMAT = {
     format: "jpeg",
@@ -35,24 +34,15 @@ const KEYS = [
       }
     }
   };
-  /**
   const WEBP_OPTS = {
-    quality: 42,
+    quality: 8,
   };
-  **/
+  const MIN_WP_QUAL = 2;
+  const MAX_WP_QUAL = 52;
+  const MIN_JPG_QUAL = 10;
+  const MAX_JPG_QUAL = 83;
 
-  //let cwebp;
-
-export async function makeCamera(connection) {
-  /**
-  const cwebp_wasm = fs.readFileSync(path.resolve('libwebp', 'cwebp.wasm'));
-  cwebp = await WebAssembly.instantiate(new Uint8Array(cwebp_wasm), {imports:{
-    ['global.Math']: Math, 
-  }}).then(res => res.instance.exports);
-
-  console.log({cwebp});
-  **/
-
+export function makeCamera(connection) {
   let shooting = false;
   let frameId = 1;
   let lastHash;
@@ -75,7 +65,21 @@ export async function makeCamera(connection) {
     }
   };
 
-  return {queueTailShot, doShot};
+  return {queueTailShot, doShot, shrinkImagery, growImagery};
+
+  function shrinkImagery({averageBw}) {
+    SAFARI_SHOT.command.params.quality -= 2;
+    if ( SAFARI_SHOT.command.params.quality < MIN_JPG_QUAL ) {
+      SAFARI_SHOT.command.params.quality = MIN_JPG_QUAL;
+    }
+  }
+
+  function growImagery({averageBw}) {
+    SAFARI_SHOT.command.params.quality += 2;
+    if ( SAFARI_SHOT.command.params.quality > MAX_JPG_QUAL ) {
+      SAFARI_SHOT.command.params.quality = MAX_JPG_QUAL;
+    }
+  }
 
   function queueTailShot() {
     if ( tailShot ) {
@@ -87,6 +91,7 @@ export async function makeCamera(connection) {
   }
 
   async function shot() {
+    // DEBUG
     if ( DEBUG.noShot ) return NOIMAGE;
     const timeNow = Date.now();
     const dur = timeNow - lastShot;
@@ -101,7 +106,8 @@ export async function makeCamera(connection) {
     }
     const targetId = connection.sessions.get(connection.sessionId);
     let response;
-    const ShotCommand = (connection.isSafari || connection.isFirefox ? SAFARI_SHOT : WEBP_SHOT).command;
+    //const ShotCommand = ((connection.isSafari || connection.isFirefox) ? SAFARI_SHOT : WEBP_SHOT).command;
+    const ShotCommand = SAFARI_SHOT.command;
     DEBUG.shotDebug && console.log(`XCHK screenShot.js (${ShotCommand.name}) call response`, ShotCommand, response ? JSON.stringify(response).slice(0,140) : response );
     response = await connection.sessionSend(ShotCommand);
     lastShot = timeNow;
@@ -119,7 +125,6 @@ export async function makeCamera(connection) {
         return NOIMAGE;
       } else {
         lastHash = F.hash;
-        await forExport({frame:F, connection});
         return F;
       }
     } else {
@@ -153,14 +158,6 @@ export async function makeCamera(connection) {
     nextShot = setTimeout(() => nextShot = false, MIN_TIME_BETWEEN_SHOTS);
     shooting = false;
   }
-}
-
-export async function forExport({frame}) {
-  let {img} = frame;
-  img = Buffer.from(img, 'base64');
-  img = img.toString('base64');
-  frame.img = img;
-  return frame;
 }
 
 

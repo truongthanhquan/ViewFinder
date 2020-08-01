@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 Sat Aug 1 07:13:17 UTC 2020
+=======
+Sat Aug 1 06:30:08 UTC 2020
+>>>>>>> nexe-build

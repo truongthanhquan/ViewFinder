@@ -9,6 +9,8 @@ description=$1
 
 gbranch npm-build
 
+./make_bundle.sh
+
 echo $time > RELEASE_TIME.txt
 
 npx webpack server.js

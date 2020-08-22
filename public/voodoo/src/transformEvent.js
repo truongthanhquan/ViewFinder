@@ -161,6 +161,9 @@ export default function transformEvent(e) {
       case "clearCookies": {
         break; 
       }
+      case "jj-saveFrame": {
+        break;
+      }
       default: {
         console.warn(`Unknown command ${JSON.stringify({synthetic})}`);
         break;

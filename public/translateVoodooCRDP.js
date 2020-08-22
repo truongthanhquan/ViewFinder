@@ -640,6 +640,15 @@ function translator(e, handled = {type:'case'}) {
         }
       };
     }
+    case "jj-saveFrame": {
+      return {
+        command: {
+          isZombieLordCommand: true,
+          name: "Connection.jjSaveFrame",
+          params: {}
+        }
+      }
+    }
     default: {
       if ( ( !!e.command && !!e.command.name ) || Array.isArray(e) ) {
         handled.type = 'default';

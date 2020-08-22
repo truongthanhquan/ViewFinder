@@ -137,6 +137,10 @@
     outline: none;
   }
 
+  canvas {
+    user-select: none;
+  }
+
 /* legacy bundle styles */
   body[mode~="legacy-bundle"] main.voodoo {
     display: flex; 

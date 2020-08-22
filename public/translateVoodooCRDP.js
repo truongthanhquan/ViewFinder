@@ -34,12 +34,10 @@ function translator(e, handled = {type:'case'}) {
     case "mousedown": case "mouseup": case "mousemove": 
     case "pointerdown": case "pointerup": case "pointermove": {
       let button = "none";
-      if ( ! e.type.endsWith("move") ) {
-        if ( e.button == 0 ) {
-          button = "left";
-        } else {
-          button = "right";
-        }
+      if ( e.button == 0 ) {
+        button = "left";
+      } else {
+        button = "right";
       }
       return {
         command : {

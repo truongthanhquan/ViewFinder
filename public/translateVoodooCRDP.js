@@ -646,6 +646,7 @@ function translator(e, handled = {type:'case'}) {
         return e;
       } else {
         handled.type = 'unhandled';
+        console.warn("Unhandled ", handled, e);
         return;
       }
     }

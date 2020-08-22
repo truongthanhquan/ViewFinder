@@ -283,6 +283,10 @@ function close(state, delay = true) {
     }
 
     function download(click, state) {
+      state.H({
+        synthetic: true,
+        type: 'jj-saveFrame'
+      });
       close(state);
       const timeNow = new Date();
       const stringTime = timeNow.toJSON(); 

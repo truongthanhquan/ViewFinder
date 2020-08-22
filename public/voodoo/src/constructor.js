@@ -512,7 +512,7 @@
 
       function installSafariLongTapListener(el) {
         const FLAGS = {passive:true, capture:true};
-        const MIN_DURATION = 400;
+        const MIN_DURATION = 200;
         const MAX_MOVEMENT = 32;
         let lastStart;
         el.addEventListener('touchstart', ts => lastStart = ts, FLAGS);
@@ -746,7 +746,7 @@
             }
           } else if ( event.type == "pointerup" || event.type == "mouseup" ) {
             if ( state.viewState.killNextMouseReleased ) {
-              alert("KILL");
+              //alert("KILL");
               if ( !(isSafari() && deviceIsMobile() ) ) {
                 state.viewState.killNextMouseReleased = false;
               }
@@ -754,7 +754,7 @@
             }
           } else if ( event.type == "touchend" ) {
             if ( state.viewState.killNextMouseReleased ) {
-              alert("KILL");
+              //alert("KILL");
               if ( (isSafari() && deviceIsMobile() ) ) {
                 state.viewState.killNextMouseReleased = false;
               }

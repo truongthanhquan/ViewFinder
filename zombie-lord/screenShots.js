@@ -1,4 +1,4 @@
-import {DEBUG, sleep} from '../common.js';
+import {PROVIDER, DEBUG, sleep} from '../common.js';
 
 const MAX_FRAMES = 3; /* 1, 2, 4 */
 const MIN_TIME_BETWEEN_SHOTS = 150; /* 20, 40, 100, 250, 500 */
@@ -66,7 +66,7 @@ export function makeCamera(connection) {
     }
   };
 
-  return {queueTailShot, doShot, shrinkImagery, growImagery};
+  return {queueTailShot, doShot, doHighResShot, shrinkImagery, growImagery};
 
   function shrinkImagery({averageBw}) {
     SAFARI_SHOT.command.params.quality -= 2;
@@ -138,6 +138,13 @@ export function makeCamera(connection) {
       }
       return NOIMAGE;
     }
+  }
+
+  async function doHighResShot() {
+    const downloadUrl = new URL(PROVIDER);
+
+    url.pathname = downloadId;
+    return {downloadUrl: downloadUrl+''};
   }
 
   async function saveShot() {

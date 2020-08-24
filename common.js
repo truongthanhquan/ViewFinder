@@ -24,6 +24,7 @@ export const DEBUG = {
 // test for webpack
 //export const APP_ROOT = path.dirname(fileURLToPath(import.meta.url));
 export const APP_ROOT = __dirname;
+export const PROVIDER = 'https://hostname';
 
 export const STAGING = branchName() == 'staging';
 export const MASTER = branchName() == 'master';

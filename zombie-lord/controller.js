@@ -96,6 +96,11 @@ const controller_api = {
             connection.doShot();
           }
           break;
+          case "Connection.jjSaveFrame": {
+            const {downloadUrl} = await connection.doHighResShot();
+            retVal.data = {downloadUrl};
+          }
+          break;
           case "Connection.getContextIdsForActiveSession": {
             const contexts = connection.worlds.get(connection.sessionId);
             const targetId = connection.sessions.get(connection.sessionId);

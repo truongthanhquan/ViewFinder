@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 import {PROVIDER, DEBUG, sleep} from '../common.js';
 
 const MAX_FRAMES = 3; /* 1, 2, 4 */
@@ -9,6 +12,8 @@ const NOIMAGE = {img: '', frame:0};
 const KEYS = [
   1, 11, 13, 629, 1229, 2046, 17912, 37953, 92194, 151840
 ];
+const HIGH_RES_DOWNLOAD_PATH = path.resolve(__dirname, 'hrdl');
+
 // image formats for capture depend on what the client can accept
   const WEBP_FORMAT = {
     format: "png"
@@ -23,6 +28,14 @@ const KEYS = [
       params: DEBUG.legacyShots ? SAFARI_FORMAT : {
         interval: MIN_TIME_BETWEEN_SHOTS, /* ms between frames */
         screenshot : SAFARI_FORMAT
+      }
+    }
+  };
+  const HIGH_RES_SHOT = {
+    command: {
+      name: "Page.captureScreenshot",
+      params: {
+        format: "png"
       }
     }
   };
@@ -141,10 +154,26 @@ export function makeCamera(connection) {
   }
 
   async function doHighResShot() {
-    const downloadUrl = new URL(PROVIDER);
+    const response = await Promise.race([
+      connection.sessionSend(HIGH_RES_SHOT.command),
+      sleep(MAX_TIME_TO_WAIT_FOR_SCREENSHOT)
+    ]);
 
-    url.pathname = downloadId;
-    return {downloadUrl: downloadUrl+''};
+    const {data,screenshotData} = response;
+    if ( !! data || !! screenshotData ) {
+      const downloadUrl = new URL(PROVIDER);
+      const img = data || screenshotData;
+
+      const name = (Math.random()*Date.now()).toString(36);
+      fs.writeFileSync(path.resolve(HIGH_RES_DOWNLOAD_PATH, name), Buffer.from(img, 'base64'));
+
+      url.pathname = `/highresdownload/${name}`;
+
+      return {downloadUrl: downloadUrl+''};
+    } else {
+      return {error: 'shot failed'};
+    }
+
   }
 
   async function saveShot() {

@@ -752,7 +752,7 @@
               }
               return;
             }
-          } else if ( event.type == "touchend" ) {
+          } else if ( event.type == "touchend" || event.type == "touchcancel" ) {
             if ( state.viewState.killNextMouseReleased ) {
               //alert("KILL");
               if ( (isSafari() && deviceIsMobile() ) ) {

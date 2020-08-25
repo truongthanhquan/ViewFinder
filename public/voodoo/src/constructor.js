@@ -513,7 +513,7 @@
       function installSafariLongTapListener(el) {
         const FLAGS = {passive:true, capture:true};
         const MIN_DURATION = 200;
-        const MAX_MOVEMENT = 32;
+        const MAX_MOVEMENT = 20;
         let lastStart;
         el.addEventListener('touchstart', ts => lastStart = ts, FLAGS);
         el.addEventListener('touchend', triggerContextMenuIfLongEnough, FLAGS);

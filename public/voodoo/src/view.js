@@ -170,6 +170,8 @@ export function component(state) {
                   e => e.preventDefault(), 
                   throttle(retargetTouchScroll, state.EVENT_THROTTLE_MS)
                 ]}
+                touchend=${H}
+                touchcancel=${H}
                 wheel:passive=${throttle(H, state.EVENT_THROTTLE_MS)}
                 mousemove:passive=${throttle(H, state.EVENT_THROTTLE_MS)}         
                 mousedown=${H}         

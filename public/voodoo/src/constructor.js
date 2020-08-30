@@ -654,6 +654,7 @@
               if ( event.type == "keydown" ) {
                 // cancel the default action
                 event.preventDefault();
+                /**
                 const nextKeyPress = cloneKeyEvent(event); 
                 const nextKeyUp = cloneKeyEvent(event); 
                 nextKeyPress.type = "keypress";
@@ -661,6 +662,7 @@
                 // dispatch these events
                 setTimeout(() => H(nextKeyPress), 0);
                 setTimeout(() => H(nextKeyUp), 0);
+                **/
               } else if ( event.type == "keypress" ) {
                 if ( state.viewState.shouldHaveFocus ) {
                   // perform the default action;
@@ -669,6 +671,15 @@
               }
             }
           }
+
+          if ( isSafari() ) {
+            if ( event.code == "Unidentified" ) {
+              if ( event.type == "keydown" || event.type == "keyup" ) {
+                return;
+              }
+            }
+          }
+
 
         const mouseEventOnPointerDevice = event.type.startsWith("mouse") && event.type !== "wheel" && !state.DoesNotSupportPointerEvents;
         const tabKeyPressForBrowserUI = event.key == "Tab" && !event.vRetargeted;
@@ -724,11 +735,11 @@
             } 
           } else if ( event.type == "keydown" && event.key == "Backspace" ) {
             state.backspaceFiring = true;
+          } else if ( event.type == "keyup" && event.key == "Backspace" ) {
+            state.backspaceFiring = false;
             if ( state.viewState.shouldHaveFocus ) {
               state.viewState.shouldHaveFocus.value = "";
             }
-          } else if ( event.type == "keyup" && event.key == "Backspace" ) {
-            state.backspaceFiring = false;
           } else if ( event.type == "pointerdown" || event.type == "mousedown" ) {
             //const {timeStamp,type} = event;
             const {latestData} = state;

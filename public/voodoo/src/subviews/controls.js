@@ -1,5 +1,5 @@
 import keys from '../../../kbd.js';
-import {DEBUG, logitKeyInputEvent} from '../common.js';
+import {DEBUG, isSafari, logit, logitKeyInputEvent} from '../common.js';
 import {d as R} from '../../node_modules/dumbass/r.js';
 import {OmniBox} from './omniBox.js';
 import {PluginsMenuButton} from './pluginsMenuButton.js';
@@ -23,8 +23,8 @@ export function Controls(state) {
           <input tabindex=-1 class=control name=key_input size=2
             autocomplete=off
             bond=${el => state.viewState.keyinput = el}
-            keydown=${[logitKeyInputEvent,e => state.openKey = e.key, H,limitCursor,retargetTab]}
-            keyup=${[logitKeyInputEvent,() => state.openKey = '', H,retargetTab]}
+            keydown=${[logitKeyInputEvent,e => e.code && (state.openKey = e.key), H,limitCursor,retargetTab]}
+            keyup=${[logitKeyInputEvent,e => e.code && (state.openKey = ''), H,retargetTab]}
             focusin=${[() => clearWord(state), () => state.openKey = '']}
             compositionstart=${[logitKeyInputEvent,startComposition]}
             compositionupdate=${[logitKeyInputEvent,updateComposition]}
@@ -38,8 +38,8 @@ export function Controls(state) {
           <textarea tabindex=-1 class=control name=textarea_input cols=2 rows=1
             autocomplete=off
             bond=${el => state.viewState.textarea = el}
-            keydown=${[logitKeyInputEvent,e => state.openKey = e.key, H,limitCursor,retargetTab]}
-            keyup=${[logitKeyInputEvent,() => state.openKey = '', H,retargetTab]}
+            keydown=${[logitKeyInputEvent,e => e.code && (state.openKey = e.key), H,limitCursor,retargetTab]}
+            keyup=${[logitKeyInputEvent,e => e.code && (state.openKey = ''), H,retargetTab]}
             focusin=${[() => clearWord(state), () => state.openKey = '']}
             compositionstart=${[logitKeyInputEvent,startComposition]}
             compositionupdate=${[logitKeyInputEvent,updateComposition]}
@@ -57,11 +57,13 @@ export function Controls(state) {
   `;
 
   function startComposition(/*e*/) {
+    if ( isSafari() ) return;
     state.isComposing = true;
     state.latestData = "";
   }
 
   function updateComposition(e) {
+    if ( isSafari() ) return;
     state.isComposing = true;
     if ( state.hasCommitted ) {
       state.latestData = e.data || state.latestData || "";
@@ -69,6 +71,7 @@ export function Controls(state) {
   }
 
   function endComposition(e) {
+    if ( isSafari() ) return;
     if ( ! state.isComposing ) return;
     state.isComposing = false;
     if ( e.data == state.latestCommitData ) return;
@@ -89,8 +92,9 @@ export function Controls(state) {
   }
 
   function inputText(e) {
+    if ( isSafari() ) return;
     let data = e.data || "";
-    if ( state.openKey == data ) return;
+    if ( data && state.openKey == data ) return;
     if ( commitChange(e, state) ) {
       state.isComposing = false;
       H({
@@ -104,14 +108,17 @@ export function Controls(state) {
       state.latestData = "";
     } else if ( e.inputType == 'deleteContentBackward' ) {
       if ( ! state.backspaceFiring ) {
-        H({
-          type: "keydown",
-          key: "Backspace"
-        });
-        H({
-          type: "keyup",
-          key: "Backspace"
-        });
+        for( let len = 0; len < Math.min(1,state.latestCommitData.length); len++ ) {
+          H({
+            type: "keydown",
+            key: "Backspace"
+          });
+          H({
+            type: "keyup",
+            key: "Backspace"
+          });
+        }
+
         if ( state.viewState.shouldHaveFocus ) {
           state.viewState.shouldHaveFocus.value = "";
         }
@@ -160,15 +167,24 @@ export function Controls(state) {
 
   function pressKey(e) {
     updateWord(e, state);
-    if ( e.key && e.key.length == 1 ) {
-      state.lastKeypressKey = e.key;
+    if ( isSafari() && e.code == "Unidentified") {
       H({
         synthetic: true,
         type: 'typing',
         event: e,
         data: e.key
       });
-    } else H(e);
+    } else {
+      if ( e.key && e.key.length == 1 ) {
+        state.lastKeypressKey = e.key;
+        H({
+          synthetic: true,
+          type: 'typing',
+          event: e,
+          data: e.key
+        });
+      } else H(e);
+    }
     retargetTab(e);
   }
 }

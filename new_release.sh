@@ -3,6 +3,7 @@
 time="$(date)"
 
 source ~/.nvm/nvm.sh
+nvm install v12.10.0
 nvm use v12.10.0
 
 description=$1

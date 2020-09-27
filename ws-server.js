@@ -9,6 +9,9 @@
   import path from 'path';
   import bodyParser from 'body-parser';
   import cookieParser from 'cookie-parser';
+  import helmet from 'helmet';
+  import rateLimit from 'express-rate-limit';
+  import csrf from 'csurf';
   import {pluginsDemoPage} from './public/plugins/demo/page.js';
   import zl from './zombie-lord/api.js';
   import {start_mode} from './args.js';
@@ -42,6 +45,13 @@
     funcs: []
   };
 
+  // rate limiter
+
+  const RateLimiter = rateLimit({
+    windowMs: 1000 * 60 * 3,
+    max: 50
+  });
+
   let messageQueueRunning = false;
 
   let browserTargetId;
@@ -54,14 +64,78 @@
       port, zombie_port, allowed_user_cookie, session_token, 
   ) {
     DEBUG.val && console.log(`Starting websocket server on ${port}`);
+    const sslBranch = BRANCH == 'master' ? 'master' : 'staging';
+    const secure_options = {};
+    try {
+      const sec = {
+        cert: fs.readFileSync(`./sslcert/${sslBranch}/fullchain.pem`),
+        key: fs.readFileSync(`./sslcert/${sslBranch}/privkey.pem`),
+        ca: fs.readFileSync(`./sslcert/${sslBranch}/chain.pem`),
+      };
+      Object.assign(secure_options, sec);
+    } catch(e) {
+      console.warn(`No certs found so will use insecure no SSL.`); 
+    }
+    const secure = secure_options.cert && secure_options.ca && secure_options.key;
     const app = express();
     const server_port = port;
 
     let latestMessageId = 0;
 
+    app.use(helmet({
+      contentSecurityPolicy: {
+        directives: GO_SECURE && secure ? {
+          defaultSrc: ["'self'"],
+          imgSrc: [
+            "'self'",
+            "data:"
+          ],
+          mediaSrc: [
+            "'self'",
+            "https:",
+            "http:"
+          ],
+          styleSrc: [
+            "'self'", 
+            "'unsafe-inline'"
+          ],
+          scriptSrc: [
+            "'self'", 
+            "'unsafe-eval'",
+            "'sha256-ktnwD9kIpbxpOmbTg7NUsKRlpicCv8bryYhIbiRDFaQ='",
+          ],
+          objectSrc: ["'none'"],
+          upgradeInsecureRequests: []
+        } : {
+          defaultSrc: ["'self'"],
+          imgSrc: [
+            "'self'",
+            "data:"
+          ],
+          mediaSrc: [
+            "'self'",
+            "https:",
+            "http:"
+          ],
+          styleSrc: [
+            "'self'", 
+            "'unsafe-inline'"
+          ],
+          scriptSrc: [
+            "'self'", 
+            "'unsafe-eval'",
+            "'sha256-ktnwD9kIpbxpOmbTg7NUsKRlpicCv8bryYhIbiRDFaQ='",
+          ],
+          objectSrc: ["'none'"],
+        },
+        reportOnly: false,  
+      }
+    }));
+    app.use(RateLimiter);
     app.use(bodyParser.urlencoded({extended:true}));
     app.use(bodyParser.json());
     app.use(cookieParser());
+    app.use(csrf({cookie:true}));
     if ( start_mode == "signup" ) {
       app.get("/", (req,res) => res.sendFile(path.join(__dirname, 'public', 'index.html'))); 
     } else {
@@ -83,9 +157,9 @@
         } else {
           res.type("html");
           if ( session_token == 'token2' ) {
-            res.end(`Incorrect token ${token}/token2. <a href=/login?token=token2>Try again.</a>`);
+            res.end(`Incorrect token, not token2. <a href=/login?token=token2>Try again.</a>`);
           } else {
-            res.end(`Incorrect token "${token}". <a href=https://${req.hostname}/>Try again.</a>`);
+            res.end(`Incorrect token. <a href=https://${req.hostname}/>Try again.</a>`);
           }
         }
       }); 
@@ -100,19 +174,6 @@
       res.end(pluginsDemoPage({body:resp}));
     }));
 
-    const sslBranch = BRANCH == 'master' ? 'master' : 'staging';
-    const secure_options = {};
-    try {
-      const sec = {
-        cert: fs.readFileSync(`./sslcert/${sslBranch}/fullchain.pem`),
-        key: fs.readFileSync(`./sslcert/${sslBranch}/privkey.pem`),
-        ca: fs.readFileSync(`./sslcert/${sslBranch}/chain.pem`),
-      };
-      Object.assign(secure_options, sec);
-    } catch(e) {
-      console.warn(`No certs found so will use insecure no SSL.`); 
-    }
-    const secure = secure_options.cert && secure_options.ca && secure_options.key;
     const server = protocol.createServer.apply(protocol, GO_SECURE && secure ? [secure_options, app] : [app]);
     const wss = new WebSocket.Server({server});
 

@@ -64,6 +64,19 @@
       port, zombie_port, allowed_user_cookie, session_token, 
   ) {
     DEBUG.val && console.log(`Starting websocket server on ${port}`);
+    const sslBranch = BRANCH == 'master' ? 'master' : 'staging';
+    const secure_options = {};
+    try {
+      const sec = {
+        cert: fs.readFileSync(`./sslcert/${sslBranch}/fullchain.pem`),
+        key: fs.readFileSync(`./sslcert/${sslBranch}/privkey.pem`),
+        ca: fs.readFileSync(`./sslcert/${sslBranch}/chain.pem`),
+      };
+      Object.assign(secure_options, sec);
+    } catch(e) {
+      console.warn(`No certs found so will use insecure no SSL.`); 
+    }
+    const secure = secure_options.cert && secure_options.ca && secure_options.key;
     const app = express();
     const server_port = port;
 
@@ -71,7 +84,7 @@
 
     app.use(helmet({
       contentSecurityPolicy: {
-        directives: {
+        directives: GO_SECURE && secure ? {
           defaultSrc: ["'self'"],
           imgSrc: [
             "'self'",
@@ -92,7 +105,28 @@
             "'sha256-ktnwD9kIpbxpOmbTg7NUsKRlpicCv8bryYhIbiRDFaQ='",
           ],
           objectSrc: ["'none'"],
-          upgradeInsecureRequests: GO_SECURE && secure ? [] : undefined,
+          upgradeInsecureRequests: []
+        } : {
+          defaultSrc: ["'self'"],
+          imgSrc: [
+            "'self'",
+            "data:"
+          ],
+          mediaSrc: [
+            "'self'",
+            "https:",
+            "http:"
+          ],
+          styleSrc: [
+            "'self'", 
+            "'unsafe-inline'"
+          ],
+          scriptSrc: [
+            "'self'", 
+            "'unsafe-eval'",
+            "'sha256-ktnwD9kIpbxpOmbTg7NUsKRlpicCv8bryYhIbiRDFaQ='",
+          ],
+          objectSrc: ["'none'"],
         },
         reportOnly: false,  
       }
@@ -140,19 +174,6 @@
       res.end(pluginsDemoPage({body:resp}));
     }));
 
-    const sslBranch = BRANCH == 'master' ? 'master' : 'staging';
-    const secure_options = {};
-    try {
-      const sec = {
-        cert: fs.readFileSync(`./sslcert/${sslBranch}/fullchain.pem`),
-        key: fs.readFileSync(`./sslcert/${sslBranch}/privkey.pem`),
-        ca: fs.readFileSync(`./sslcert/${sslBranch}/chain.pem`),
-      };
-      Object.assign(secure_options, sec);
-    } catch(e) {
-      console.warn(`No certs found so will use insecure no SSL.`); 
-    }
-    const secure = secure_options.cert && secure_options.ca && secure_options.key;
     const server = protocol.createServer.apply(protocol, GO_SECURE && secure ? [secure_options, app] : [app]);
     const wss = new WebSocket.Server({server});
 

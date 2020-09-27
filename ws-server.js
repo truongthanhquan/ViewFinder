@@ -92,7 +92,7 @@
             "'sha256-ktnwD9kIpbxpOmbTg7NUsKRlpicCv8bryYhIbiRDFaQ='",
           ],
           objectSrc: ["'none'"],
-          upgradeInsecureRequests: [],
+          upgradeInsecureRequests: GO_SECURE && secure ? [] : undefined,
         },
         reportOnly: false,  
       }

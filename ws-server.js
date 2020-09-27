@@ -79,8 +79,8 @@
           ],
           mediaSrc: [
             "'self'",
-            "https://isolation.site:*",
-            "https://demo.browsergap.dosyago.com:*"
+            "https:",
+            "http:"
           ],
           styleSrc: [
             "'self'", 

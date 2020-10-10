@@ -8,6 +8,7 @@ const SHORT_TIMEOUT = 1000;
 
 const MIN_DELTA = 40;
 const MIN_PIX_DELTA = 8;
+const MIN_X_PIX_DELTA = 32;
 const THRESHOLD_DELTA = 1;
 const DOM_DELTA_PIXEL = 0;
 const DOM_DELTA_LINE = 1;
@@ -60,8 +61,8 @@ function translator(e, handled = {type:'case'}) {
     case "wheel": {
       // if we use emulateTouchFromMouseEvent we need a button value
       const deltaMode = e.originalEvent.deltaMode;
-      const deltaX = adjustWheelDeltaByMode(e.originalEvent.deltaX, deltaMode);
-      const deltaY = adjustWheelDeltaByMode(e.originalEvent.deltaY, deltaMode);
+      const deltaY = adjustWheelDeltaByMode(e.originalEvent.deltaY, deltaMode, 'Y');
+      const deltaX = adjustWheelDeltaByMode(e.originalEvent.deltaX, deltaMode, 'X');
       const {contextId} = e;
       const clientX = 0;
       const clientY = 0
@@ -727,7 +728,7 @@ function encodeModifiers(originalEvent) {
   return modifiers;
 }
 
-function adjustWheelDeltaByMode(delta, mode) {
+function adjustWheelDeltaByMode(delta, mode, axis) {
   if ( delta == 0 ) return delta;
   let threshold = Math.abs(delta) > THRESHOLD_DELTA;
   if ( ! threshold ) {
@@ -736,8 +737,14 @@ function adjustWheelDeltaByMode(delta, mode) {
   switch(mode) {
     case DOM_DELTA_PIXEL:
       //console.log("pix mode", delta);
-      if ( threshold && Math.abs(delta) < MIN_PIX_DELTA ) {
-        delta = Math.sign(delta)*MIN_PIX_DELTA;
+      if ( axis == 'Y' ) {
+        if ( threshold && Math.abs(delta) < MIN_PIX_DELTA ) {
+          delta = Math.sign(delta)*MIN_PIX_DELTA;
+        }
+      } else {
+        if ( delta < MIN_X_PIX_DELTA ) {
+          delta = 0;
+        }
       }
       break;
     case DOM_DELTA_LINE:

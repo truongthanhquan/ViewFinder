@@ -177,7 +177,6 @@
         queue.addMetaListener('changed', async meta => {
           if ( completed ) return;
           if ( meta.changed.type == 'page' && meta.changed.url.startsWith("https://isolation.site/redirect") ) {
-            completed = true;
             await sleep(500);
             await activateTab(null, meta.changed)
             await sleep(2000);
@@ -187,11 +186,12 @@
               event: null,
               url: taskUrl
             });
+            completed = true;
+            await sleep(5000);
+            history.pushState("", "", "/")
           }
         });
         state.createTab(null, "https://isolation.site/redirect.html");
-        await sleep(5000);
-        history.pushState("", "", "/")
       });
     }
 
@@ -211,13 +211,13 @@
 
       if ( isSafari() ) {
         queue.send({type:"isSafari"});
-      }
-      if ( isFirefox() ) {
+      } else if ( isFirefox() ) {
         queue.send({type:"isFirefox"});
       }
 
       if ( deviceIsMobile() ) {
         state.hideScrollbars();
+        queue.send({type:"isMobile"});
       }
 
     // event handlers
@@ -246,6 +246,11 @@
             // do nothing. Aborts are normal, and just mean existing document stays there. If we 
             // overwrite that document with an aborted message, the normal function of the page
             // will fail
+            // so we could notify with a writeCanvas instead
+            // writeCanvas(`Request failed: ${meta.failed.params.errorText}`, meta.failed.frameId, meta.failed.sessionId);
+            // but there's not really any point since these aborted errors are normally 
+            // quickly followed by something that works
+            // plus people are not used to seeing aborted
           } else {
             writeDocument(`Request failed: ${meta.failed.params.errorText}`, meta.failed.frameId, meta.failed.sessionId);
           }
@@ -317,7 +322,7 @@
           message: `The file "${filename}" is downloading to a secure location and will be displayed securely momentarily if it is a supported format.`,
           otherButton: {
             title: 'Get License',
-            onclick: () => window.open('mailto:cris@dosycorp.com?Subject=BrowserGap+License+Support+Inquiry&body=Hi%20Cris', "_blank")
+            onclick: () => window.open('mailto:cris@dosycorp.com?Subject=ViewFinder+License+Support+Inquiry&body=Hi%20Cris', "_blank")
           },
           title: "SecureView\u2122 Enabled",
         };
@@ -356,6 +361,9 @@
       });
 
     
+    // make this so we can call it on resize
+      window._voodoo_asyncSizeTab = () => setTimeout(sizeTab, 0);
+
     // bond tasks 
       canvasBondTasks.push(indicateNoOpenTabs);
       canvasBondTasks.push(installZoomListener);
@@ -649,6 +657,8 @@
           } else return;
         }
 
+        if ( event.defaultPrevented ) return;
+
         const mouseEventOnPointerDevice = event.type.startsWith("mouse") && event.type !== "wheel" && !state.DoesNotSupportPointerEvents;
         const tabKeyPressForBrowserUI = event.key == "Tab" && !event.vRetargeted;
         const unnecessaryIfSyncValue = (
@@ -799,7 +809,24 @@
       }
 
       async function activateTab(click, tab) {
+        // don't activate if the click was a close click from our tab
+        if ( click && click.currentTarget.querySelector('button.close') == click.target ) return;
+
         click && click.preventDefault(); 
+
+        // sometimes we delay the call to activate tab and
+        // in the meantime the list of tabs can empty
+        // so we exit if there is no tab to activate
+        if ( ! tab ) return;
+
+        if ( click ) {
+          setTimeout(
+            () => click.target.closest('li')
+              .scrollIntoView({inline:'center', behavior:'smooth'}),
+            LONG_DELAY
+          );
+        }
+
         if ( state.activeTarget == tab.targetId ) {
           if ( state.viewState.omniBoxInput == state.viewState.lastActive ) {
             state.viewState.omniBoxInput.focus();
@@ -849,7 +876,7 @@
                   }
                 </style>
                 <h2>
-                  New Blank Browser Tab. 
+                  Secure ViewFinder 
                 </h2>
                 <strong>
                   Current time: ${(new Date).toString()}
@@ -857,8 +884,7 @@
               </html>
             `);
             **/
-            writeCanvas("Secure BrowserGap Tab.");
-            //writeDocument("Undead Tab from the Crypt of Hell. <a href=https://github.com/dosyago/BrowserGap>Spells here</a>.");
+            writeCanvas("Secure ViewFinder");
             state.viewState.omniBoxInput.focus();
           }
         }, SHORT_DELAY);
@@ -949,6 +975,10 @@
             },
           }
         });
+        if ( click ) {
+          click.target.blur();
+          click.currentTarget.blur();
+        }
       }
 
       function canKeysInput() {

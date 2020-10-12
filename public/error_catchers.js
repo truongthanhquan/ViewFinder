@@ -1,6 +1,5 @@
-import {DEBUG} from './voodoo/src/common.js';
+import {DEBUG, deviceIsMobile as isMobile} from './voodoo/src/common.js';
 
-const MobilePlatform = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
 setupErrorCatchers();
 
 export default function setupErrorCatchers() {
@@ -8,15 +7,16 @@ export default function setupErrorCatchers() {
   DEBUG.dev && (self.onunhandledrejection = ({reason}) => (func()(JSON.stringify(reason,null,2)), true));
 }
 
-function isMobile() {
-  return MobilePlatform.test(navigator.userAgent);
-}
-
 function func() {
   if ( isMobile() ) {
     return (...x) => {
       console.log(x);
-      alert(JSON.stringify(x));
+      alert(x);
+      try {
+        alert(JSON.stringify(x));
+      } catch(e) {
+
+      }
       throw x[0];
     };
   } else {

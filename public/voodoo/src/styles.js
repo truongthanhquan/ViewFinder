@@ -178,30 +178,6 @@ export const dss = {
         background: var(--white);
       }
 
-      li.new {
-        flex-shrink: 0;
-        min-width: unset;
-        border-top-left-radius: 0.35rem;
-        border-top-right-radius: 0.35rem;
-        overflow: hidden;
-        margin: 0 0.35rem;
-      }
-
-      li.new button.new {
-        display: inline-block;
-        border-radius: 2rem;
-        width: 1.7rem;
-        height: 1.7rem;
-        min-width: unset;
-        background-image: url(./voodoo/asset-imports/nhsuk-icons/icon-plus.svg);
-        background-size: 20px 20px;
-        outline: none;
-        border-color: transparent;
-      }
-
-      li.new button:hover, li.new button:active, li.new button:focus {
-      }
-
       li.tab-selector button.close {
         position: absolute;
         right: 0.25rem;
@@ -224,6 +200,7 @@ export const dss = {
       }
 
       li.tab-selector a {
+        cursor: default;
         display: inline-block;
         box-sizing: border-box;
         width: 100%;
@@ -239,6 +216,30 @@ export const dss = {
         padding-right: 1.65rem;
         outline: none;
         border-color: transparent;
+      }
+
+      li.new {
+        flex-shrink: 0;
+        min-width: unset;
+        border-top-left-radius: 0.35rem;
+        border-top-right-radius: 0.35rem;
+        overflow: hidden;
+        margin: 0 0.35rem;
+      }
+
+      li.new button.new {
+        display: inline-block;
+        border-radius: 2rem;
+        width: 1.7rem;
+        height: 1.7rem;
+        min-width: unset;
+        background-image: url(./voodoo/asset-imports/nhsuk-icons/icon-plus.svg);
+        background-size: 20px 20px;
+        outline: none;
+        border-color: transparent;
+      }
+
+      li.new button:hover, li.new button:active, li.new button:focus {
       }
     `;
   }
@@ -674,6 +675,9 @@ export const dss = {
 
       * canvas {
         image-rendering: high-quality;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        user-select: none;
         -webkit-touch-callout: none;
       }
     `;
@@ -763,6 +767,10 @@ export const dss = {
         padding: 0.5em 0;
         min-width: 200px;
         z-index: 10;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
       }
 
       * .context-menu h1 {

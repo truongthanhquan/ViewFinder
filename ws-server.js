@@ -49,7 +49,7 @@
 
   const RateLimiter = rateLimit({
     windowMs: 1000 * 60 * 3,
-    max: 50
+    max: DEBUG.mode == 'dev' ? 1000 : 50
   });
 
   let messageQueueRunning = false;
@@ -116,6 +116,11 @@
             "'self'",
             "https:",
             "http:"
+          ],
+          connectSrc: [
+            "'self'",
+            "wss://isolation.site:*",
+            "wss://demo.browsergap.dosyago.com:*"
           ],
           styleSrc: [
             "'self'", 
@@ -187,10 +192,13 @@
         :
         undefined;
       const cookie = req.headers.cookie;
+      const IP = req.connection.remoteAddress;
       let closed = false;
 
-      zl.act.saveIP(req.connection.remoteAddress);
-      DEBUG.val && console.log({connectionIp:req.connection.remoteAddress});
+      DEBUG.val && console.log({wsConnected:{cookie, qp, IP}});
+
+      zl.act.saveIP(IP);
+
       const validAuth = DEBUG.dev || 
         allowed_user_cookie == 'cookie' || 
         (cookie && cookie.includes(`${COOKIENAME+port}=${allowed_user_cookie}`)) ||

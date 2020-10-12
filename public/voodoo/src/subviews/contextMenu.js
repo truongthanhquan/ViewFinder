@@ -6,7 +6,7 @@ const CLOSE_DELAY = 222;
 const SHORT_CUT = 'Ctrl+Shift+J';
 //const FUNC = e => console.log("Doing it", e);
 
-const CONTEXT_MENU = {
+const CONTEXT_MENU = (state) => ({
   'page': [
     {
       title: 'Open link in new tab',
@@ -57,8 +57,20 @@ const CONTEXT_MENU = {
       shortCut: SHORT_CUT,
       func: clearBrowsingData,
     },
+    {
+      title: (
+        document.fullscreenElement || 
+        document.webkitFullscreenElement
+      ) ? 
+        'Exit full screen' : 
+        'Full screen'
+      ,
+      shortCut: SHORT_CUT,
+      func: fullScreen,
+      hr: true,
+    },
   ], 
-};
+});
 
 export function ContextMenu(/*state*/) {
   return R`
@@ -66,11 +78,13 @@ export function ContextMenu(/*state*/) {
   `;
 }
 
+export const CTX_MENU_THRESHOLD = 675;
+
 export function makeContextMenuHandler(state, node = {type:'page', id: 'current-page'}) {
   const {/*id, */ type:nodeType} = node;
-  const menuItems = CONTEXT_MENU[nodeType];
 
   return contextMenu => {
+    const menuItems = CONTEXT_MENU(state)[nodeType];
     // we need this check because we attach a handler to each node
     // we could use delegation at the container of the root node
     // but for now we do it like this
@@ -98,7 +112,7 @@ export function makeContextMenuHandler(state, node = {type:'page', id: 'current-
       // the actual way to kill the click is 
       // by killing the next mouse release like so:
       state.viewState.contextMenuClick = contextMenu;
-      state.viewState.killNextMouseReleased = true;
+      //state.viewState.killNextMouseReleased = true;
 
       // we also stop default context menu
       contextMenu.preventDefault();
@@ -398,6 +412,23 @@ function close(state, delay = true) {
           type: "clearCookies"
         });
         alert("Cleared all history, caches and cookies.");
+      }
+      close(state);
+    }
+
+    async function fullScreen(click, state) {
+      if ( document.fullscreenElement || document.webkitFullscreenElement ) {
+        if ( document.webkitCancelFullscreen ) {
+          document.webkitCancelFullscreen();
+        } else {
+          await document.exitFullscreen();
+        }
+      } else {
+        if ( document.body.webkitRequestFullscreen ) {
+          document.body.webkitRequestFullscreen({navigationUI:'hide'});
+        } else {
+          await document.body.requestFullscreen({navigationUI:'hide'});
+        }
       }
       close(state);
     }

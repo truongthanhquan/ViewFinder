@@ -103,7 +103,7 @@ export default function transformEvent(e) {
       }
       case "window-bounds": {
         const {width, height, targetId} = synthetic;
-        DEBUG.val && console.log(width,height,targetId);
+        DEBUG.val > DEBUG.med && console.log({windowBounds:{width,height,targetId}});
         Object.assign(transformedEvent, {width, height,targetId});
         break;
       }
@@ -146,6 +146,9 @@ export default function transformEvent(e) {
         break;
       }
       case "isSafari": {
+        break;
+      }
+      case "isMobile": {
         break;
       }
       case "isFirefox": {

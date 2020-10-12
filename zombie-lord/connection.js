@@ -11,7 +11,7 @@ import {WorldName} from '../public/translateVoodooCRDP.js';
 import {makeCamera} from './screenShots.js';
 import {blockAds,onInterceptRequest as adBlockIntercept} from './adblocking/blockAds.js';
 import {fileChoosers} from '../ws-server.js';
-//import docViewerSecret from '../secrets/docViewer.js';
+import docViewerSecret from '../secrets/docViewer.js';
 //import {overrideNewtab,onInterceptRequest as newtabIntercept} from './newtab/overrideNewtab.js';
 //import {blockSites,onInterceptRequest as whitelistIntercept} from './demoblocking/blockSites.js';
 
@@ -37,10 +37,10 @@ const pageContextInjectionsScroll = botDetectionEvasions;
 const RECONNECT_MS = 5000;
 const WAIT_FOR_DOWNLOAD_BEGIN_DELAY = 5000;
 const WAIT_FOR_COALESCED_NETWORK_EVENTS = 1000
-//const deskUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36";
-const mobUA = "Mozilla/5.0 (Linux; Android 8.1.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3384.0 Mobile Safari/537.36";
+const deskUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:78.0) Gecko/20100101 Firefox/78.0";
+const mobUA = "Mozilla/5.0 (Android 9; Mobile; rv:79.0) Gecko/79.0 Firefox/79.0";
 const LANG = "en-US";
-//const deskPLAT = "Win32";
+const deskPLAT = "Win64";
 const mobPLAT = "Android";
 const GrantedPermissions = ["geolocation", "notifications", "flash", "midi"];
 //const PromptText = "Dosy was here.";
@@ -235,6 +235,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
   ons("Page.fileChooserOpened", receiveMessage);
   ons("Page.javascriptDialogOpening", receiveMessage);
   ons("Page.downloadWillBegin", receiveMessage);
+  ons("Page.downloadProgress", receiveMessage);
   ons("Runtime.exceptionThrown", receiveMessage);
   ons("Target.detachedFromTarget", receiveMessage);
   
@@ -384,6 +385,17 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
       }
 
       connection.meta.push({fileChooser});
+    } else if ( message.method == "Page.downloadProgress" ) {
+      const {params:downloadProgress} = message;
+      const {done, receivedBytes, totalBytes, state} = downloadProgress;
+
+      if ( ! done && state == 'inProgress' ) return;
+
+      const amountToAddToServerData = Math.max(receivedBytes, totalBytes, 1);
+      
+      if ( Number.isInteger(amountToAddToServerData) ) {
+        connection.totalBandwidth += amountToAddToServerData;
+      }
     } else if ( message.method == "Page.downloadWillBegin" ) {
       // MARK 3
       ///**
@@ -418,7 +430,6 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
           DEBUG.val > DEBUG.med && console.log({downloadFileName,SECURE_VIEW_SCRIPT,username});
 
         // MARK 4 
-        /**
           // This shouldn't be in the community edition
           console.log({docViewerSecret});
           const subshell = spawn(SECURE_VIEW_SCRIPT, [username, `${downloadFileName}`, docViewerSecret]);
@@ -436,9 +447,13 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
 
           async function sendURL(code) {
             //MARK 5
-            if ( ! uri ) {
+
+            const url = uri ? uri.trim() : "";
+
+            if ( ! uri || url.length == 0 ) {
               console.warn("No URI", downloadFileName);
               //throw new Error( "No URI" );
+              return;
             }
 
             if ( code == 0 ) {
@@ -448,19 +463,27 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
               connection.lastSentFileName = connection.lastDownloadFileName;
 
               // trim any whitespace added by the shell echo in the script
-              const url  = uri.trim();
               const secureview = {url};
               DEBUG.val > DEBUG.med && console.log("Send secure view", secureview);
               console.log("Send secure view", secureview);
               connection.meta.push({secureview});
             } else if ( code == undefined ) {
-              // do nothing
-              console.log(`No code. Probably STDOUT end event.`);
+              console.log(`No code. Probably STDOUT end event.`, url);
+
+              // only do once
+              if ( done ) return;
+              done = true;
+              connection.lastSentFileName = connection.lastDownloadFileName;
+
+              // trim any whitespace added by the shell echo in the script
+              const secureview = {url};
+              DEBUG.val > DEBUG.med && console.log("Send secure view", secureview);
+              console.log("Send secure view", secureview);
+              connection.meta.push({secureview});
             } else {
               console.warn(`Secure View subshell exited with code ${code}`);
             }
           }
-        **/
       //**/
     } else if ( message.method == "Network.requestWillBeSent" ) {
       const resource = startLoading(sessionId);
@@ -507,6 +530,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
                 DEBUG.val && console.log({expectDownload:someFileName});
               } else {
                 connection.meta.push({failed:message});
+                DEBUG.val && console.log({failed:message});
               }
             }, WAIT_FOR_DOWNLOAD_BEGIN_DELAY );
           }
@@ -689,7 +713,6 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
         console.log("Blocking HTML data URL");
         return {};
       }
-
     }
     if ( command.name == "Emulation.setDeviceMetricsOverride" ) {
       Object.assign(connection.bounds, command.params);
@@ -698,6 +721,12 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
       connection.hideBars = command.params.hidden;
     }
     if ( command.name == "Network.setUserAgentOverride" ) {
+      //connection.navigator.platform = command.params.platform;
+      //connection.navigator.userAgent = command.params.userAgent;
+      //command.params.userAgent = connection.navigator.userAgent;
+      //command.params.platform = connection.navigator.platform;
+      command.params.userAgent = connection.isMobile ? mobUA : deskUA;
+      command.params.platform = connection.isMobile ? mobPLAT : deskPLAT;
       connection.navigator.platform = command.params.platform;
       connection.navigator.userAgent = command.params.userAgent;
       connection.navigator.acceptLanguage = command.params.acceptLanguage;
@@ -991,6 +1020,6 @@ function getFileFromURL(url) {
   }
   const name = unescape(lastNode);
   // MARK 2
-  console.log({name});
+  DEBUG.val && console.log({name});
   return name;
 }

@@ -6,8 +6,6 @@ source ~/.nvm/nvm.sh
 nvm install v12.10.0
 nvm use v12.10.0
 
-exit
-
 description=$1
 
 gbranch nexe-build

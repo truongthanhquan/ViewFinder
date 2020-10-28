@@ -10,7 +10,7 @@ import {username} from '../args.js';
 import {WorldName} from '../public/translateVoodooCRDP.js';
 import {makeCamera} from './screenShots.js';
 import {blockAds,onInterceptRequest as adBlockIntercept} from './adblocking/blockAds.js';
-import {fileChoosers} from '../ws-server.js';
+import {LatestCSRFToken, fileChoosers} from '../ws-server.js';
 import docViewerSecret from '../secrets/docViewer.js';
 //import {overrideNewtab,onInterceptRequest as newtabIntercept} from './newtab/overrideNewtab.js';
 //import {blockSites,onInterceptRequest as whitelistIntercept} from './demoblocking/blockSites.js';
@@ -38,10 +38,19 @@ const RECONNECT_MS = 5000;
 const WAIT_FOR_DOWNLOAD_BEGIN_DELAY = 5000;
 const WAIT_FOR_COALESCED_NETWORK_EVENTS = 1000
 const deskUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:78.0) Gecko/20100101 Firefox/78.0";
+//const mobUA = "Mozilla/5.0 (Android 9; Mobile; rv:79.0) Gecko/79.0 Firefox/79.0";
+//const deskUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36";
 const mobUA = "Mozilla/5.0 (Android 9; Mobile; rv:79.0) Gecko/79.0 Firefox/79.0";
+
 const LANG = "en-US";
 const deskPLAT = "Win64";
+//const deskPLAT = "MacIntel";
 const mobPLAT = "Android";
+
+//const VEND = "Apple Computer, Inc.";
+//const VEND = "Google, Inc.";
+const VEND = "";
+
 const GrantedPermissions = ["geolocation", "notifications", "flash", "midi"];
 //const PromptText = "Dosy was here.";
 const ROOT_SESSION = 'root';
@@ -101,6 +110,7 @@ function removeSession(id) {
 
 export default async function Connect({port}, {adBlock:adBlock = true, demoBlock: demoBlock = false} = {}) {
   AD_BLOCK_ON = adBlock;
+
   if ( demoBlock ) {
     AD_BLOCK_ON = false;
     DEMO_BLOCK_ON = true;
@@ -122,7 +132,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
     tabs,
     sessionId: null,
     bounds: {width: 1280, height: 800},
-    navigator: { userAgent: UA, platform: PLAT, acceptLanguage: LANG },
+    navigator: { userAgent: UA, platform: PLAT, acceptLanguage: LANG, vendor: VEND },
     plugins: {},
     setClientErrorSender(e) {
       this.zombie.sendErrorToClient = e;
@@ -271,14 +281,20 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
       );
     } else if ( message.method == "Runtime.consoleAPICalled" ) {
       const consoleMessage = message.params;
-      const {args,executionContextId} = consoleMessage;
+      const {type,args,executionContextId} = consoleMessage;
 
-      // console.log(JSON.stringify(consoleMessage));
+      const logMessages = args.map(convertRemoteObjectToString);
 
       try {
-        DEBUG.val && console.log(executionContextId, consoleMessage.args[0].value.slice(0,255));
-      } finally {
-        void 0;
+        DEBUG.val && console.log("Runtime.consoleAPICalled",
+          {executionContextId}, 
+          {logMessageCount:logMessages.length}, 
+          {type},
+          JSON.stringify(logMessages).slice(0,255)
+        );
+      } catch(e) {
+        console.warn("Could not show messages from console API");
+        DEBUG.val && console.log(args);
       }
 
       if ( ! args.length ) return;
@@ -371,18 +387,24 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
 
       DEBUG.val > DEBUG.med && console.log(fileChooser, message);
 
-      const {node:{attributes:fileInputAttributes}} = await send("DOM.describeNode", {
-        backendNodeId
-      }, sessionId);
+      try {
+        const {node:{attributes:fileInputAttributes}} = await send("DOM.describeNode", {
+          backendNodeId
+        }, sessionId);
 
-      if ( fileInputAttributes ) {
-        for( let i = 0; i < fileInputAttributes.length; i++ ) {
-          if ( fileInputAttributes[i] == "accept" ) {
-            fileChooser.accept = fileInputAttributes[i+1];
-            break;
+        if ( fileInputAttributes ) {
+          for( let i = 0; i < fileInputAttributes.length; i++ ) {
+            if ( fileInputAttributes[i] == "accept" ) {
+              fileChooser.accept = fileInputAttributes[i+1];
+              break;
+            }
           }
         }
+      } catch(e) {
+        console.info(`Error getting FileInput.accept attribute by describing backend node from id`, e, fileChooser)
       }
+
+      fileChooser.csrfToken = LatestCSRFToken;
 
       connection.meta.push({fileChooser});
     } else if ( message.method == "Page.downloadProgress" ) {
@@ -514,7 +536,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
 
           message.frameId = frameId;
           DEBUG.val && console.log({failedURL:url});
-          if ( !url.startsWith('http') ) {
+          if ( !(url.startsWith('http')) ) {
             const modal = {
               type: 'intentPrompt',
               title: 'External App Request',
@@ -590,21 +612,23 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
         },
         sessionId
       )
-      await send("Fetch.enable",{
-          handleAuthRequests: true,
-          patterns: [
-            {
-              urlPattern: 'http://*/*',
-              requestStage: "Response"
-            },
-            {
-              urlPattern: 'https://*/*',
-              requestStage: "Response"
-            }
-          ],
-        },
-        sessionId
-      );
+      if ( AD_BLOCK_ON ) {
+        await send("Fetch.enable",{
+            handleAuthRequests: true,
+            patterns: [
+              {
+                urlPattern: 'http://*/*',
+                requestStage: "Response"
+              },
+              {
+                urlPattern: 'https://*/*',
+                requestStage: "Response"
+              }
+            ],
+          },
+          sessionId
+        );
+      }
       await send("Page.enable", {}, sessionId);
       await send("Page.setInterceptFileChooserDialog", {
         enabled: true
@@ -1022,4 +1046,20 @@ function getFileFromURL(url) {
   // MARK 2
   DEBUG.val && console.log({name});
   return name;
+}
+
+function convertRemoteObjectToString({type, className, value, unserializableValue, description}) {
+  let asString;
+
+  if ( value ) {
+    try {
+      asString = JSON.stringify(value);  
+    } finally { void 0; }
+  } else if ( unserializableValue ) {
+    try {
+      asString = unserializableValue + "";
+    } finally { void 0; }
+  }
+
+  return `${type}:${className||type}:${asString||''}:${description||'[unknown value]'}`;
 }

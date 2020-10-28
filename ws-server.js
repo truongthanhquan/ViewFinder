@@ -52,6 +52,8 @@
     max: DEBUG.mode == 'dev' ? 1000 : 50
   });
 
+  export let LatestCSRFToken = '';
+
   let messageQueueRunning = false;
 
   let browserTargetId;
@@ -140,7 +142,12 @@
     app.use(bodyParser.urlencoded({extended:true}));
     app.use(bodyParser.json());
     app.use(cookieParser());
+    app.use(upload.array("files", 10));
     app.use(csrf({cookie:true}));
+    app.use((req, res, next) => {
+      LatestCSRFToken = req.csrfToken();
+      next();
+    });
     if ( start_mode == "signup" ) {
       app.get("/", (req,res) => res.sendFile(path.join(__dirname, 'public', 'index.html'))); 
     } else {
@@ -359,7 +366,7 @@
           throw e;
         }
       }));
-      app.post("/file", upload.array("files", 10), async (req,res) => {
+      app.post("/file", async (req,res) => {
         const cookie = req.cookies[COOKIENAME+port];
         if ( !DEBUG.dev && allowed_user_cookie !== 'cookie' &&
           (cookie !== allowed_user_cookie) ) { 

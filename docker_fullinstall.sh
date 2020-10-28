@@ -18,7 +18,7 @@ sudo apt update
 
 sudo apt install -y docker-ce
 
-git clone https://github.com/dosyago/ViewFinder
+git clone https://github.com/c9fe/ViewFinder
 cd ViewFinder
 ./build_docker.sh
 ./run_docker.sh

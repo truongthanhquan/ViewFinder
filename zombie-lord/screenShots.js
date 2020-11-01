@@ -15,7 +15,7 @@ const KEYS = [
   };
   const SAFARI_FORMAT = {
     format: "jpeg",
-    quality: 35 /* 25, 50, 80, 90, 100 */
+    quality: 25 /* 25, 50, 80, 90, 100 */
   };
   const SAFARI_SHOT = {
     command: {
@@ -40,8 +40,8 @@ const KEYS = [
   };
   const MIN_WP_QUAL = 2;
   const MAX_WP_QUAL = 52;
-  const MIN_JPG_QUAL = 10;
-  const MAX_JPG_QUAL = 83;
+  const MIN_JPG_QUAL = 6;
+  const MAX_JPG_QUAL = 35;
 
 export function makeCamera(connection) {
   let shooting = false;

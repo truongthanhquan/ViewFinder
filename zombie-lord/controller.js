@@ -176,11 +176,13 @@ const controller_api = {
           }
           case "Connection.resampleImagery": {
             const {down, up, averageBw} = command.params;
+            /*
             if ( down ) {
               connection.shrinkImagery({averageBw});
             } else if ( up ) {
               connection.growImagery({averageBw});
             }
+            */
           }
           break;
           default: {

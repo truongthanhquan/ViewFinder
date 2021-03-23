@@ -24,48 +24,80 @@ const launcher_api = {
       DEBUG.val && console.log(`Ignoring launch request as chrome already started.`);
     }
     const DEFAULT_FLAGS = [
+   /**
       '--display:1',
       '--use-gl=egl',
+    **/
       '--window-size=2880,1800',
       '--profiling-flush=1',
       '--enable-aggressive-domstorage-flushing',
       '--restore-last-session',
       '--disk-cache-size=2750000000',
       `--profile-directory="${upd}"`,
+    /**
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--disable-gpu',
       '--window-position=0,0',
       '--disable-renderer-backgrounding',
       '--disable-background-networking',
+    **/
 
-///**
-      '--enable-features=NetworkService,NetworkServiceInProcess',
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-breakpad',
-      '--disable-client-side-phishing-detection',
-      '--disable-component-extensions-with-background-pages',
-      '--disable-default-apps',
-      '--disable-dev-shm-usage',
-      '--disable-extensions',
-      '--disable-features=Translate',
-      '--disable-hang-monitor',
-      '--disable-ipc-flooding-protection',
-      '--disable-popup-blocking',
-      '--disable-prompt-on-repost',
-      '--disable-renderer-backgrounding',
-      '--disable-sync',
-      '--force-color-profile=srgb',
-      '--metrics-recording-only',
-      '--no-first-run',
-      '--enable-automation',
-      '--password-store=basic',
-      '--use-mock-keychain',
-      // TODO(sadym): remove '--enable-blink-features=IdleDetection'
-      // once IdleDetection is turned on by default.
-      '--enable-blink-features=IdleDetection',
-//**/
+/**
+		'--enable-features=NetworkService,NetworkServiceInProcess',
+		'--disable-background-timer-throttling',
+		'--disable-backgrounding-occluded-windows',
+		'--disable-breakpad',
+		'--disable-client-side-phishing-detection',
+		'--disable-component-extensions-with-background-pages',
+		'--disable-default-apps',
+		'--disable-dev-shm-usage',
+		'--disable-extensions',
+		'--disable-features=Translate',
+		'--disable-hang-monitor',
+		'--disable-ipc-flooding-protection',
+		'--disable-popup-blocking',
+		'--disable-prompt-on-repost',
+		'--disable-renderer-backgrounding',
+		'--disable-sync',
+		'--force-color-profile=srgb',
+		'--metrics-recording-only',
+		'--no-first-run',
+		'--enable-automation',
+		'--password-store=basic',
+		'--use-mock-keychain',
+		// TODO(sadym): remove '--enable-blink-features=IdleDetection'
+		// once IdleDetection is turned on by default.
+		'--enable-blink-features=IdleDetection',
+**/
+
+/**
+ 	'--no-sandbox',
+	'--disable-setuid-sandbox',
+	'--disable-infobars',
+	'--single-process',
+	'--no-zygote',
+	'--no-first-run',
+	'--window-position=0,0',
+	'--ignore-certificate-errors',
+	'--ignore-certificate-errors-skip-list',
+	'--disable-dev-shm-usage',
+	'--disable-accelerated-2d-canvas',
+	'--disable-gpu',
+	'--hide-scrollbars',
+	'--disable-notifications',
+	'--disable-background-timer-throttling',
+	'--disable-backgrounding-occluded-windows',
+	'--disable-breakpad',
+	'--disable-component-extensions-with-background-pages',
+	'--disable-extensions',
+	'--disable-features=TranslateUI,BlinkGenPropertyTrees',
+	'--disable-ipc-flooding-protection',
+	'--disable-renderer-backgrounding',
+	'--enable-features=NetworkService,NetworkServiceInProcess',
+	'--force-color-profile=srgb',
+	'--metrics-recording-only',
+**/
 
     ];
     chromeNumber += 1;

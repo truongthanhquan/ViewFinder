@@ -39,7 +39,7 @@ const launcher_api = {
       '--disable-renderer-backgrounding',
       '--disable-background-networking',
 
-/**
+///**
       '--enable-features=NetworkService,NetworkServiceInProcess',
       '--disable-background-timer-throttling',
       '--disable-backgrounding-occluded-windows',
@@ -65,7 +65,7 @@ const launcher_api = {
       // TODO(sadym): remove '--enable-blink-features=IdleDetection'
       // once IdleDetection is turned on by default.
       '--enable-blink-features=IdleDetection',
-**/
+//**/
 
     ];
     chromeNumber += 1;

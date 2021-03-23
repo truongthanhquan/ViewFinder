@@ -31,7 +31,7 @@ const launcher_api = {
       '--enable-aggressive-domstorage-flushing',
       '--restore-last-session',
       '--disk-cache-size=2750000000',
-      `--profile-directory="${upd}"`
+      `--profile-directory="${upd}"`,
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--disable-gpu',

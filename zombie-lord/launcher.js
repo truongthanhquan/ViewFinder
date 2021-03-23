@@ -34,6 +34,9 @@ const launcher_api = {
       '--restore-last-session',
       '--disk-cache-size=2750000000',
       `--profile-directory="${upd}"`,
+      '--disable-webgl',
+      '--disable-webgl2',
+      '--disable-3d-apis',
     /**
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',

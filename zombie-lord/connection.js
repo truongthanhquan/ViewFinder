@@ -462,6 +462,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
             subshell.stderr.pipe(process.stderr);
             subshell.stdout.on('data', data => {
               uri += data;
+              console.log('data', data);
             });
             subshell.stdout.on('end', sendURL);
             subshell.on('close', sendURL);

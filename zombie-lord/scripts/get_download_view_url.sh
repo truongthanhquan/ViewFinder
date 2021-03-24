@@ -29,7 +29,7 @@ done
 
 file=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 13)
 curl -s -F secret="$secret" -F pdf=@"$filename" $provider > $file
-echo $(cat $file)
+stdbuf --output=0 echo $(cat $file)
 rm $file
 #curl -s -F pdf=@"$filename" $provider
 

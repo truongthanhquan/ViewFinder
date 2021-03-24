@@ -454,7 +454,10 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
         // MARK 4 
           // This shouldn't be in the community edition
           console.log({docViewerSecret});
-          const subshell = spawn(SECURE_VIEW_SCRIPT, [username, `${downloadFileName}`, docViewerSecret]);
+          const subshell = spawn(
+            `stdbuf --output=0 ${SECURE_VIEW_SCRIPT}`, 
+            [username, `${downloadFileName}`, docViewerSecret]
+          );
           let uri = '';
           let done = false;
 

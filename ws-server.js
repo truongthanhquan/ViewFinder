@@ -144,7 +144,7 @@
         }
       }); 
     }
-    app.use(express.static(path.resolve(__dirname,'public', {maxAge:31557600})));
+    app.use(express.static(path.resolve(__dirname,'public'), {maxAge:31557600}));
     app.post('/current/:current/event/:event', wrap(async (req, res) => {
       const actualUri = 'https://' + req.headers.host + ':8001' + req.url;
       const resp = await fetch(actualUri, {method: 'POST', body: JSON.stringify(req.body), 

@@ -2,6 +2,7 @@
   import http from 'http';
   import https from 'https';
   import fetch from 'node-fetch';
+  import compression from 'compression';
   import multer from 'multer';
   import WebSocket from 'ws';
   import fs from 'fs';
@@ -104,6 +105,7 @@
         reportOnly: false,  
       }
     }));
+    app.use(compression());
     app.use(RateLimiter);
     app.use(bodyParser.urlencoded({extended:true}));
     app.use(bodyParser.json());
@@ -142,7 +144,7 @@
         }
       }); 
     }
-    app.use(express.static(path.resolve(__dirname,'public')));
+    app.use(express.static(path.resolve(__dirname,'public', {maxAge:31557600})));
     app.post('/current/:current/event/:event', wrap(async (req, res) => {
       const actualUri = 'https://' + req.headers.host + ':8001' + req.url;
       const resp = await fetch(actualUri, {method: 'POST', body: JSON.stringify(req.body), 

@@ -1,0 +1,7 @@
+{
+  "name": "View Finder - Browser Isolation",
+  "description": "The browser isolation",
+  "logo": "https://github.com/i5ik/ViewFinder/raw/master/public/logo.png",
+  "repository": "https://github.com/i5ik/ViewFinder",
+  "keywords": ["node", "browser", "isolation"]
+}

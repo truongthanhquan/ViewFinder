@@ -23,7 +23,6 @@ import {WorldName} from '../public/translateVoodooCRDP.js';
 import {RACE_SAMPLE, makeCamera, COMMON_FORMAT, DEVICE_FEATURES, SCREEN_OPTS, MAX_ACK_BUFFER, MIN_WIDTH, MIN_HEIGHT} from './screenShots.js';
 import {blockAds,onInterceptRequest as adBlockIntercept} from './adblocking/blockAds.js';
 import {getInjectableAssetPath, LatestCSRFToken, fileChoosers} from '../ws-server.js';
-import docViewerSecret from '../../config/secrets/docViewer.js';
 //import {overrideNewtab,onInterceptRequest as newtabIntercept} from './newtab/overrideNewtab.js';
 //import {blockSites,onInterceptRequest as whitelistIntercept} from './demoblocking/blockSites.js';
 
@@ -65,6 +64,7 @@ const pageContextInjectionsScroll = `(function () {
 const templatedInjections = {
 };
 
+const docViewerSecret = process.env.DOCS_KEY;
 const MAX_TRIES_TO_LOAD = 10;
 const TAB_LOAD_WAIT = 300;
 const RECONNECT_MS = 5000;
@@ -192,15 +192,22 @@ function removeSession(id) {
 
   1 Connect call per client would require a translation table among targetIds and sessionIds
 **/
-export default async function Connect({port}, {adBlock:adBlock = true, demoBlock: demoBlock = false} = {}) {
+export default async function Connect({port}, {adBlock:adBlock = DEBUG.adBlock, demoBlock: demoBlock = false} = {}) {
   AD_BLOCK_ON = adBlock;
 
   LOG_FILE.Commands = new Set([
-    "Emulation.setDeviceMetricsOverride",
-    "Browser.setWindowBounds",
-    "Page.startScreencast",
-    "Page.stopScreencast",
-    "Page.captureScreenshot"
+    ...(DEBUG.debugFileUpload ? [
+      'DOM.setFileInputFiles',
+      'Page.fileChooserOpened',
+      'Page.setInterceptFileChooserDialog',
+    ] : []),
+    ...(DEBUG.debugCast ? [
+      "Emulation.setDeviceMetricsOverride",
+      "Browser.setWindowBounds",
+      "Page.startScreencast",
+      "Page.stopScreencast",
+      "Page.captureScreenshot"
+    ] : []),
   ]);
 
   if ( demoBlock ) {
@@ -218,6 +225,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
     browserTargetId: null,
     loadingCount: 0,
     totalBandwidth: 0,
+    downloaded: {},
     record: {},
     frameBuffer: [],
     pausing: new Map(),
@@ -251,7 +259,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
         title: "System Notice",
         message: notice,
       };
-      connection.meta.push({modal});
+      connection.forceMeta({modal});
       const randomName = path.resolve(SignalNotices, 'old' + Math.random().toString(36) + performance.now());
       fs.renameSync(noticeFilePath, randomName);
       fs.unlinkSync(randomName);
@@ -344,7 +352,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
     const {targetId} = targetInfo;
     targets.add(targetId);
     tabs.set(targetId,targetInfo);
-    connection.meta.push({created:targetInfo,targetInfo});
+    connection.forceMeta({created:targetInfo,targetInfo});
     if ( targetInfo.type == "page" && !DEBUG.attachImmediately ) {
       await send("Target.attachToTarget", {targetId, flatten:true});
     }
@@ -492,7 +500,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
     }
   );
   
-  async function sendFrameToClient({message, sessionId}) {
+  function sendFrameToClient({message, sessionId}) {
     const {sessionId: castSessionId, data, metadata} = message.params;
     const {timestamp} = metadata;
     const {frameId} = updateCast(sessionId, {castSessionId}, 'frame');
@@ -508,7 +516,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
       if ( ! sessionId ) {
         console.warn(`1 No sessionId for screencast ack`);
       }
-      setTimeout(() => send("Page.screencastFrameAck", {sessionId: frameId}, sessionId), 30);
+      setTimeout(() => send("Page.screencastFrameAck", {sessionId: frameId}, sessionId), 5);
       return;
     }
     latestTimestamp = timestamp;
@@ -554,17 +562,16 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
 
   async function beginDownload(dl) {
     try {
-      DEBUG.debugDownloads && console.log({dl});
+      DEBUG.debugFileDownload && console.log({dl});
       const {suggestedFilename, guid, url: dlURL} = dl;
       const downloadFileName = suggestedFilename || getFileFromURL(dlURL);
       const download = {suggestedFilename, guid, url: dlURL};
       download.filename = downloadFileName;
 
-      DEBUG.val && console.log({download});
-      DEBUG.val && console.log({suggestedFilename});
+      DEBUG.debugFileDownload && console.log({download});
+      DEBUG.debugFileDownload && console.log({suggestedFilename});
 
       // notification
-        connection.meta.push({download});
         connection.lastDownloadFileName = downloadFileName;
 
       // do only once
@@ -572,18 +579,27 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
       connection.lastDownloadGUID = download.guid;
 
       // logging 
-        DEBUG.val > DEBUG.med && console.log({downloadFileName,SECURE_VIEW_SCRIPT,username});
+        DEBUG.debugFileDownload && console.log({downloadFileName,SECURE_VIEW_SCRIPT,username});
 
       const ext = downloadFileName.split('.').pop();
       const guidFile = path.resolve(DownloadPath, guid);
       const originalFile = path.resolve(DownloadPath, downloadFileName); 
-      let isGuidFile = false;
 
-      await untilTrue(() => isGuidFile = fs.existsSync(guidFile), 150, 40);
+      connection.forceMeta({download});
 
-      if ( isGuidFile ) {
+      DEBUG.debugFileDownload && console.log(`File ${downloadFileName} is downloading`);
+
+      await untilTrue(() => !!connection.downloaded?.[guid], 1001, 3*3600); // wait 3 hours for a download
+
+      DEBUG.debugFileDownload && console.log(`File ${downloadFileName} has downloaded`);
+
+      await sleep(1001);
+      
+      // if the file is named with a guid copy it to original name
+      if ( fs.existsSync(guidFile) ) {
         try {
           fs.linkSync(guidFile, originalFile);
+          DEBUG.debugFileDownload && console.log(`GUID file name`, originalFile );
         } catch(e) {
           DEBUG.showFlash && console.info(`Could not create link from guid file`, e);
         } finally {
@@ -593,8 +609,10 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
             console.warn(`Could not delete guid file`, guidFile, downloadFileName);
           }
         }
+      } else if ( fs.existsSync(originalFile) ) {
+        DEBUG.debugFileDownload && console.log(`Original file name`, originalFile );
       } else {
-        await untilTrue(() => fs.existsSync(originalFile), 150, 40);
+        console.warn(`Cannot find download`, download);
       }
 
       if ( FLASH_FORMATS.has(ext) ) {
@@ -608,8 +626,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
             encodeURIComponent(downloadFileName)
         }&ran=${Math.random()}`;
         const flashplayer = {url};
-        connection.meta.push({flashplayer});
-        DEBUG.val > DEBUG.med && console.log("Send secure view", flashplayer);
+        connection.forceMeta({flashplayer});
         DEBUG.showFlash && console.log("Send flash player", flashplayer);
 
         const linkToFile = path.resolve(APP_ROOT, 'public', 'assets', 'flash', downloadFileName);
@@ -659,8 +676,8 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
 
             // trim any whitespace added by the shell echo in the script
             const secureview = {url};
-            DEBUG.val > DEBUG.med && console.log("Send secure view", secureview);
-            connection.meta.push({secureview});
+            DEBUG.debugfiledownload && console.log("Send secure view", secureview);
+            connection.forceMeta({secureview});
           } else if ( code == undefined ) {
             console.log(`No code. Probably STDOUT end event.`, url);
 
@@ -671,9 +688,8 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
 
             // trim any whitespace added by the shell echo in the script
             const secureview = {url};
-            DEBUG.val > DEBUG.med && console.log("Send secure view", secureview);
-            console.log("Send secure view", secureview);
-            connection.meta.push({secureview});
+            DEBUG.debugFileDownload && console.log("Send secure view", secureview);
+            connection.forceMeta({secureview});
           } else {
             console.warn(`Secure View subshell exited with code ${code}`);
           }
@@ -684,20 +700,33 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
     }
   }
 
-  async function progressDownload({receivedBytes, totalBytes, guid, state}) {
+  async function progressDownload({receivedBytes, totalBytes, guid, state, done}) {
     try {
       const amountToAddToServerData = Math.max(receivedBytes, totalBytes, 1);
       
       if ( Number.isInteger(amountToAddToServerData) ) {
         connection.totalBandwidth += amountToAddToServerData;
       }
-      connection.meta.push({dl_progress:{receivedBytes, totalBytes, guid, state}});
+      connection.forceMeta({downloPro:{receivedBytes, totalBytes, guid, state, done}});
+      if ( done || state == 'completed' || (receivedBytes >= totalBytes && totalBytes > 0) ) {
+        if ( ! connection.downloaded ) {
+          connection.downloaded = {};
+        }
+        connection.downloaded[guid] = true;
+      }
     } catch(e) {
       console.warn(e);
     }
   }
 
   async function receiveMessage({message, sessionId}) {
+    if ( DEBUG.logFileCommands && LOG_FILE.Commands.has(message.method) ) {
+      console.info(`Logging`, message);
+      fs.appendFileSync(LOG_FILE.FileHandle, JSON.stringify({
+        timestamp: (new Date).toISOString(),
+        message,
+      },null,2)+"\n");
+    }
     if ( message.method == "Network.dataReceived" ) {
       const {encodedDataLength, dataLength} = message.params;
       connection.totalBandwidth += (encodedDataLength || dataLength);
@@ -792,7 +821,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
             if ( faviconDataUrl ) {
               if ( oldUrl !== faviconDataUrl ) {
                 favicons.set(targetId, faviconDataUrl);
-                connection.meta.push(Message);
+                connection.forceMeta(Message);
                 DEBUG.debugFavicon && console.log(`FROM PAGE: Setting favicon for ${targetId}`, {Message});
               }
             } else if ( faviconURL?.startsWith?.('http') ) {
@@ -801,7 +830,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
                 if ( oldUrl !== faviconDataUrl ) {
                   favicons.set(targetId, faviconDataUrl);
                   const Message = {favicon:{targetId, faviconDataUrl}, executionContextId};
-                  connection.meta.push(Message);
+                  connection.forceMeta(Message);
                   DEBUG.debugFavicon && console.log(`FROM SERVER CACHE (from FETCH): Setting favicon for ${targetId}`, {Message});
                 }
               } else {
@@ -831,7 +860,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
                           if ( oldUrl !== faviconDataUrl ) {
                             favicons.set(targetId, faviconDataUrl);
                             const Message = {favicon:{targetId, faviconDataUrl}, executionContextId};
-                            connection.meta.push(Message);
+                            connection.forceMeta(Message);
                             DEBUG.debugFavicon && console.log(`FROM FETCH: Setting favicon for ${targetId}`, {Message});
                           }
                         });
@@ -848,7 +877,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
               }
             }
           } else {
-            connection.meta.push(Message);
+            connection.forceMeta(Message);
           }
         } catch(e) {
           DEBUG.debugFavicon && firstArg.type === 'string' && firstArg.value.includes('favicon') &&
@@ -894,7 +923,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
       const {params:modal} = message;
       modal.sessionId = sessionId;
       (DEBUG.val || DEBUG.debugModals ) && console.log(JSON.stringify({modal}));
-      connection.meta.push({modal});
+      connection.forceMeta({modal});
       connection.vmPaused = true;
       connection.modal = modal;
     } else if ( message.method == "Page.frameNavigated" ) {
@@ -920,7 +949,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
         favicons.delete(targetId);
         DEBUG.debugFavicon && console.log(`Deleted favicon for targetId ${targetId} upon navigation`);
 
-        connection.meta.push({favicon: {useDefaultFavicon: true}});
+        connection.forceMeta({favicon: {useDefaultFavicon: true}});
         connection.meta.push({navigated});
         // this is strangely necessary to not avoid the situation where the layer tree is not updated
         // on page navigation, meaning that layerPainted events stop firing after a couple of navigations
@@ -984,7 +1013,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
       fileChooser.csrfToken = LatestCSRFToken;
 
       DEBUG.val && console.log('notify client', fileChooser);
-      connection.meta.push({fileChooser});
+      connection.forceMeta({fileChooser});
     } else if ( message.method == "Network.requestWillBeSent" ) {
       const resource = startLoading(sessionId);
       const {requestId,frameId, request:{url}} = message.params;
@@ -1033,7 +1062,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
               }ms`);
             } else {
               connection.lastIntentPromptAt = now;
-              connection.meta.push({modal});
+              connection.forceMeta({modal});
             }
           } else {
             setTimeout(() => {
@@ -1070,7 +1099,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
       connection.pausing.set(request.url, requestId);
       const authRequired = {authChallenge, requestId, resourceType};
       (DEBUG.debugAuth || DEBUG.val) && console.log({authRequired});
-      connection.meta.push({authRequired});
+      connection.forceMeta({authRequired});
     } else if ( message.method && ( message.method.startsWith("LayerTree") || message.method.startsWith("Page") || message.method.startsWith("Network")) ) {
       // ignore
     } else { 
@@ -1166,13 +1195,15 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
         },
         sessionId
       );
-      await send(
-        "Emulation.setDefaultBackgroundColorOverride",
-        {
-          color: { r: 120, g: 120, b: 120, a: 0.8 }
-        },
-        sessionId
-      );
+      if ( CONFIG.setAlternateBackgroundColor ) {
+        await send(
+          "Emulation.setDefaultBackgroundColorOverride",
+          {
+            color: { r: 120, g: 120, b: 120, a: 0.8 }
+          },
+          sessionId
+        );
+      }
 
       await send("Page.enable", {}, sessionId);
 
@@ -1180,6 +1211,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
         const castInfo = casts.get(targetId);
         if ( !castInfo || ! castInfo.castSessionId ) {
           updateCast(sessionId, {started:true}, 'start');
+          DEBUG.shotDebug && console.log("SCREENCAST", SCREEN_OPTS);
           await send("Page.startScreencast", SCREEN_OPTS, sessionId);
         } else {
           if ( ! sessionId ) {
@@ -1579,7 +1611,7 @@ export default async function Connect({port}, {adBlock:adBlock = true, demoBlock
         DEBUG.debugModals && console.log({command});
         command.requiresTask = () => {
           connection.modal = null;
-          connection.meta.push({vm:{paused:false}});
+          connection.forceMeta({vm:{paused:false}});
         };
       }; break;
     }
@@ -1883,7 +1915,7 @@ async function makeZombie({port:port = 9222} = {}) {
       }
     }
     if ( DEBUG.logFileCommands && LOG_FILE.Commands.has(message.method) ) {
-      DEBUG.val && console.info(`Logging`, message);
+      console.info(`Logging`, message);
       fs.appendFileSync(LOG_FILE.FileHandle, JSON.stringify({
         timestamp: (new Date).toISOString(),
         message,

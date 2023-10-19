@@ -142,6 +142,9 @@
           H,
           checkResults,
 
+          // set up progress
+          safariLongTapInstalled: false,
+
           // chrome browser UI (tabs, address bar, etc)
           chromeUI: (
             CONFIG.uiDefaultOff ? false :
@@ -157,6 +160,7 @@
           showIMEUI,
 
           // bandwidth
+          showBandwidthIssue: false,
           messageDelay: 0,          // time it takes to receive an average, non-frame message
           showBandwidthRate: true,
           myBandwidth: 0,
@@ -426,6 +430,17 @@
             subviews.UnreadBadge(state);
           });
           queue.addMetaListener('multiplayer', meta => handleMultiplayerMessage(meta, state));
+        
+        // download progress
+          queue.addMetaListener('downloPro', ({downloPro}) => {
+            DEBUG.debugDownloadProgress && console.log(JSON.stringify({downloPro}, null, 2));
+            const {receivedBytes, totalBytes, done, state: dlState} = downloPro;
+            if ( dlState == 'canceled' ) {
+              const {guid, receivedBytes} = downloPro;
+              console.warn(`Download ${guid} cancelled after ${receivedBytes} bytes received.`);
+            } 
+            state.topBarComponent.updateDownloadStatus(downloPro);
+          });
 
         // should go in bb-view script.js 
         // (so we can use el.shadowRoot instead of document)
@@ -926,7 +941,7 @@
               */
               title: "SecureView\u2122 Enabled",
             };
-            state.viewState.modalComponent.openModal({modal});
+            CONFIG.showModalOnFileDownload && state.viewState.modalComponent.openModal({modal});
           });
 
           queue.addMetaListener('secureview', ({secureview}) => {
@@ -938,6 +953,15 @@
               } else {
                 createTab(null, url);
               }
+            }
+          });
+
+          queue.addMetaListener('bandwidthIssue', ({bandwidthIssue}) => {
+            const showBandwidthIssue = bandwidthIssue == 'yes';
+            if ( state.showBandwidthIssue != showBandwidthIssue ) {
+              DEBUG.logBandwidthIssueChanges && console.log({bandwidthIssue});
+              state.showBandwidthIssue = showBandwidthIssue;
+              setState('bbpro', state);
             }
           });
 
@@ -1040,6 +1064,7 @@
           use('bb-top-bar');
           use('bb-modals');
           use('bb-resize-button');
+          use('bb-bw-spinner');
           use('bb-settings-button');
           const bb = document.querySelector('bb-view');
           if ( !bb.shadowRoot ) {
@@ -1157,7 +1182,7 @@
                 console.warn(e);
               }
             } else {
-              writeCanvas("");
+              //writeCanvas("");
               //writeCanvas("\u{1f608}", {Y:y => y + 50, noClear: true})
             }
           }
@@ -1193,6 +1218,7 @@
         }
 
         function clearViewport() {
+	  return;
           if ( state.useViewFrame ) {
             try {
               state.viewState.viewFrameEl.contentDocument.body.innerHTML = ``;
@@ -1228,27 +1254,67 @@
         }
 
         function installSafariLongTapListener(el) {
+          if ( state.safariLongTapInstalled ) return;
           const FLAGS = {passive:true, capture:true};
           const MIN_DURATION = CTX_MENU_THRESHOLD;
-          const MAX_MOVEMENT = 20;
+          const MAX_MOVEMENT = 24;
+          let triggered = false;
+          let maxMovement = 0;
           let lastStart;
           let lastE;
+          let triggerTimer;
+          let expireIgnoreTimer;
+          let timeStarted = 0;
           el.addEventListener('touchstart', ts => {
-            DEBUG.debugContextMenu && console.log(`Starting Safari context menu trigger timer...`);
+            DEBUG.debugContextMenu && console.log(`Touchstart`);
+            triggered = false;
+            timeStarted = Date.now();
+            maxMovement = 0;
             lastStart = ts;
             lastE = null;
-            setTimeout(() => {
-              triggerContextMenuUnlessMoved();
+            if ( triggerTimer ) clearTimeout(triggerTimer);
+            DEBUG.debugContextMenu && console.log(`Starting Safari context menu trigger timer...`);
+            triggerTimer = setTimeout(() => {
+              triggerContextMenuUnlessMoved(ts, 'timer');
             }, CTX_MENU_THRESHOLD);
           }, FLAGS);
+
           el.addEventListener('touchmove', tm => {
+            DEBUG.debugContextMenu && console.log(`Touchmove`);
             lastE = tm;
+            const touch1 = lastStart.changedTouches[0];
+            const touch2 = tm.changedTouches[0];
+            const movement = Math.hypot(
+              touch2.pageX - touch1.pageX,
+              touch2.pageY - touch1.pageY
+            );
+
+            maxMovement = Math.max(maxMovement, movement);
+            DEBUG.debugContextMenu && console.log({maxMovement});
+            if ( maxMovement > MAX_MOVEMENT ) {
+              DEBUG.debugContextMenu && console.log(`Clearing trigger timer.`);
+              clearTimeout(triggerTimer);
+            }
             triggerContextMenuIfLongEnough(tm);
           }, FLAGS);
-          el.addEventListener('touchend', triggerContextMenuIfLongEnough, FLAGS);
-          el.addEventListener('touchcancel', triggerContextMenuIfLongEnough, FLAGS);
+
+          el.addEventListener('touchend', te => {
+            DEBUG.debugContextMenu && console.log(`Touchend`);
+            if ( triggerTimer ) clearTimeout(triggerTimer);
+            triggerContextMenuIfLongEnough(te);
+          }, FLAGS)
+
+          el.addEventListener('touchcancel', tc => {
+            DEBUG.debugContextMenu && console.log(`Touchcancel`);
+            if ( triggerTimer ) clearTimeout(triggerTimer);
+            triggerContextMenuIfLongEnough(tc);
+          }, FLAGS);
+
+          state.safariLongTapInstalled = true;
 
           function triggerContextMenuIfLongEnough(tf) {
+            DEBUG.debugContextMenu && console.log(`Maybe triggering unless long enough`, {triggered});
+            if ( triggered ) return;
             const touch1 = lastStart.changedTouches[0];
             let movement = 0;
             let duration = CTX_MENU_THRESHOLD;
@@ -1260,22 +1326,34 @@
                 touch2.pageY - touch1.pageY
               );
             // time
-              duration = tf.timeStamp - lastStart.timeStamp;
+              duration = Date.now() - timeStarted;
 
-            if ( duration >= MIN_DURATION && movement <= MAX_MOVEMENT ) {
+            DEBUG.debugContextMenu && console.log({duration, movement, maxMovement});
+
+            if ( duration >= MIN_DURATION && movement <= MAX_MOVEMENT && maxMovement <= MAX_MOVEMENT ) {
+              triggered = true;
+              DEBUG.debugContextMenu && console.log(`Triggering Safari context menu because not moved and long enough...`);
               /**
               lastStart.preventDefault();
               tf && tf.preventDefault();
               **/
               const {pageX,pageY,clientX,clientY} = touch1;
-              el.dispatchEvent(new CustomEvent('contextmenu', {detail:{pageX,pageY,clientX,clientY}}));
+              console.log({pageX,pageY,clientX,clientY});
+              el.dispatchEvent(new CustomEvent('contextmenu', {detail:{pageX, pageY, clientX, clientY}}));
             }
           }
 
-          function triggerContextMenuUnlessMoved() {
+          function triggerContextMenuUnlessMoved(event, timer) {
+            DEBUG.debugContextMenu && console.log(`Maybe triggering unless moved`, {triggered});
+            if ( triggered ) return;
             const touch1 = lastStart.changedTouches[0];
-            const tf = lastE;
-            if ( ! lastE ) return;
+            const tf = lastE || event;
+            if ( ! lastE && ! timer ) {
+              DEBUG.debugContextMenu && console.log(
+                `Bailing out of trigger because not initiated by timer and no last (non touchstart) event`
+              );
+              return;
+            }
             let movement = 0;
 
             // space 
@@ -1285,15 +1363,21 @@
                 touch2.pageY - touch1.pageY
               );
             // time
-            if ( movement <= MAX_MOVEMENT ) {
-              DEBUG.debugContextMenu && console.log(`Triggering Safari context menu...`);
-              /**
-              lastStart.preventDefault();
-              tf && tf.preventDefault();
-              **/
+            if ( movement <= MAX_MOVEMENT && maxMovement <= MAX_MOVEMENT ) {
+              triggered = true;
+              DEBUG.debugContextMenu && console.log(`Triggering Safari context menu because already long enough and not moved...`);
+              if ( timer ) {
+                clearTimeout(expireIgnoreTimer);
+                state.ignoreNextClickEvent = true;
+                expireIgnoreTimer = setTimeout(() => state.ignoreNextClickEvent = false, 1503);
+                lastStart && lastStart.preventDefault();
+                lastStart && lastStart.stopPropagation();
+                tf && tf.preventDefault();
+                tf && tf.stopPropagation();
+              }
               const {pageX,pageY,clientX,clientY} = touch1;
-              el.dispatchEvent(new CustomEvent('contextmenu', {detail:{pageX,pageY,clientX,clientY}}));
-              DEBUG.debugContextMenu && console.log(`Triggered`);
+              DEBUG.debugContextMenu && console.log({pageX,pageY,clientX,clientY});
+              el.dispatchEvent(new CustomEvent('contextmenu', {detail:{pageX, pageY, clientX, clientY}}));
             }
           }
         }
@@ -1733,7 +1817,7 @@
                       }
                     </style>
                     <h2>
-                      Secure BrowsreBox 
+                      Secure BrowserBox 
                     </h2>
                     <strong>
                       Current time: ${(new Date).toString()}
@@ -1741,7 +1825,7 @@
                   </html>
                 `);
                 **/
-                writeCanvas("");
+                //writeCanvas("");
                 if ( ! state.viewState.omniBoxInput ) {
                   console.warn(`No omni box found yet.`);
                   return;

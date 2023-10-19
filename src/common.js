@@ -16,7 +16,15 @@ export const LOG_FILE = {
 };
 
 export const DEBUG = Object.freeze({
-  logFileCommands: false,
+  ALL_FLAGS: false, // turn on all chrome flags listed in MISC_STABILITY_RELATED_FLAGS_THAT_REDUCE_SECURITY
+  localTestRTT: process.platform == "darwin" && true,
+  debugFileDownload: false,
+  debugFileUpload: false,
+  useNewAsgardHeadless: false,
+  adBlock: true,
+  showFlags: false,
+  allowExternalChrome: true,
+  logFileCommands: true,
   showTodos: false,
   showViewportChanges: false,
   logRestartCast: false,
@@ -131,10 +139,11 @@ export const FLASH_FORMATS = new Set([
   'jsfl',
 ]);
 export const CONFIG = Object.freeze({
+  setAlternateBackgroundColor: false,
   screencastOnly: true,
   baseDir: path.resolve(os.homedir(), '.config', 'dosyago', 'bbpro'),
-  darkMode: true, 
-  forceContentDarkMode: true,
+  darkMode: false, 
+  forceDarkContentMode: false,
   audioDropPossiblySilentFrames: true,
   sslcerts: process.env.SSLCERTS_DIR ? process.env.SSLCERTS_DIR : 'sslcerts',
   reniceValue: process.env.RENICE_VALUE || -15,
@@ -163,6 +172,7 @@ export const SignalNotices = path.resolve(CONFIG.baseDir, 'notices');
 export const NoticeFile = 'text';
 export const noticeFilePath = path.resolve(SignalNotices, NoticeFile);
 export const NOTICE_SIGNAL = 'SIGPIPE';
+export const CONNECTION_ID_URL = "data:text,DoNotDeleteMe";
 export const MAX_TABS = 15;
 const MIN_HEIGHT = 300;
 const MIN_WAIT = 10;
@@ -187,7 +197,11 @@ export const SECURE_VIEW_SCRIPT = path.join(APP_ROOT, 'zombie-lord', 'scripts', 
 
 fs.mkdirSync(CONFIG.baseDir, {recursive: true});
 fs.mkdirSync(SignalNotices, {recursive:true});
-execSync(`chmod 757 ${SignalNotices}`);
+try {
+  execSync(`chmod 757 ${SignalNotices}`);
+} catch(e) {
+  console.warn(`Running chmod on notices file failed.`);
+}
 
 export async function throwAfter(ms, command, port, Aborter) {
   // could make this sleep cancellable
@@ -272,4 +286,17 @@ export async function untilForever(pred, waitOverride = 5000) {
   }
 }
 
-export const CONNECTION_ID_URL = "data:text,DoNotDeleteMe";
+// leading edge throttle
+export function throttle(func, wait) {
+  let timeout;
+
+  const throttled = (...args) => {
+    if ( ! timeout ) {
+      timeout = setTimeout(() => timeout = false, wait);
+      return func(...args);
+    }
+  }
+
+  return throttled;
+}
+

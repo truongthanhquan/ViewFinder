@@ -1,15 +1,67 @@
 #!/usr/bin/env bash
 
-get_install_dir() {
-  install_path=$(find $HOME -name .bbpro_install_dir -print -quit 2>/dev/null)
-  install_dir=$(dirname $install_path)
-  echo $install_dir
+#set -x
+
+unset npm_config_prefix
+
+# flush any partial
+read -p "Enter to continue" -r
+REPLY=""
+
+read_input() {
+  if [ -t 0 ]; then  # Check if it's running interactively
+    read -p "$1" -r REPLY
+  else
+    read -r REPLY
+    REPLY=${REPLY:0:1}  # Take the first character of the piped input
+  fi
+  echo  # Add a newline for readability
+  echo
+}
+
+get_latest_dir() {
+  # Find potential directories containing .bbpro_install_dir
+  pwd="$(pwd)"
+  install_path1=$(find $pwd -name .bbpro_install_dir -print 2>/dev/null)
+  current_version=$(jq -r '.version' ./package.json)
+
+  # Loop through each found path to check if node_modules also exists in the same directory
+  IFS=$'\n'  # Change Internal Field Separator to newline for iteration
+  for path in $install_path1; do
+    dir=$(dirname $path)
+      # Get the version of the found directory's package.json
+      found_version=$(jq -r '.version' "${dir}/package.json")
+
+      # Check if the found version is the same or later than the current version
+      if [[ $(echo -e "$current_version\n$found_version" | sort -V | tail -n1) == "$found_version" ]]; then
+        echo "$dir"
+        return 0
+      fi
+  done
+
+  install_path2=$(find $HOME -name .bbpro_install_dir -print 2>/dev/null)
+  IFS=$'\n'  # Change Internal Field Separator to newline for iteration
+  for path in $install_path2; do
+    dir=$(dirname $path)
+      # Get the version of the found directory's package.json
+      found_version=$(jq -r '.version' "${dir}/package.json")
+
+      # Check if the found version is the same or later than the current version
+      if [[ $(echo -e "$current_version\n$found_version" | sort -V | tail -n1) == "$found_version" ]]; then
+        echo "$dir"
+        return 0
+      fi
+  done
+
+  echo "No valid install directory found." >&2
+  return 1
 }
 
 os_type() {
   case "$(uname -s)" in
     Darwin*) echo "macOS";;
     Linux*)  echo "Linux";;
+    MING*)   echo "win";;
     *)       echo "unknown";;
   esac
 }
@@ -20,9 +72,15 @@ install_nvm() {
     echo "Installing nvm..."
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
     source ~/.nvm/nvm.sh
-    nvm install node
+    nvm install stable
   fi
 }
+
+SUDO=""
+
+if command -v sudo; then
+  SUDO="sudo"
+fi
 
 echo -e "\n\n"
 echo "Welcome to the BrowserBox Pro installation."
@@ -37,9 +95,9 @@ echo "For large volume purchases, please visit our website: https://dosyago.com"
 echo -e "\n"
 echo "For other inquiries, you may contact sales@dosyago.com."
 echo -e "\n"
-read -p "By proceeding with the installation, you confirm your acceptance of these terms and conditions and that you have purchased a license if your use of BrowserBoxPro is intended for commercial applications that do not comply with AGPL-3.0. Do you agree to these terms? (yes/no): " answer
+read_input "By proceeding with the installation, you confirm your acceptance of these terms and conditions and that you have purchased a license if your use of BrowserBoxPro is intended for commercial applications that do not comply with AGPL-3.0. Do you agree to these terms? (yes/no): " 
 
-case ${answer:0:1} in
+case ${REPLY:0:1} in
     y|Y )
         echo "You have agreed to the terms. Proceeding with the installation..."
     ;;
@@ -49,26 +107,57 @@ case ${answer:0:1} in
     ;;
 esac
 
+#!/bin/bash
 
-if [ "$(os_type)" == "Linux" ]; then
-  sudo apt -y install net-tools ufw
-  sudo ufw disable
+# If on macOS
+if [[ "$(uname)" == "Darwin" ]]; then
+    # Check the machine architecture
+    ARCH="$(uname -m)"
+    if [[ "$ARCH" == "arm64" ]]; then
+        echo "This script is not compatible with the MacOS ARM architecture at this time"
+        echo "due to some dependencies having no pre-built binaries for this architecture."
+        echo "Please re-run this script under Rosetta."
+        #exit 1
+    fi
 fi
 
-if [ "$#" -eq 1 ]; then
+if [ "$(os_type)" == "Linux" ]; then
+  $SUDO apt update && $SUDO apt -y upgrade
+  $SUDO apt -y install net-tools ufw
+  $SUDO ufw disable
+fi
+
+if [ "$#" -eq 2 ] || [[ "$1" == "localhost" ]]; then
   hostname="$1"
+  export BB_USER_EMAIL="$2"
+
+  amd64=""
 
   if [ "$hostname" == "localhost" ]; then
     if ! command -v mkcert &>/dev/null; then
       if [ "$(os_type)" == "macOS" ]; then
-        brew install mkcert
+        brew install nss mkcert
+      elif [ "$(os_type)" == "win" ]; then
+        choco install mkcert || scoop bucket add extras && scoop install mkcert
       else
-        curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-        chmod +x mkcert-v*-linux-amd64
-        sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+        amd64=$(dpkg --print-architecture || uname -m)
+        $SUDO apt -y install libnss3-tools
+        curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/$amd64"
+        chmod +x mkcert-v*-linux-$amd64
+        $SUDO cp mkcert-v*-linux-$amd64 /usr/local/bin/mkcert
+        rm mkcert-v*
       fi
     fi
     mkcert -install
+    if [[ ! -f "$HOME/sslcerts/privkey.pem" || ! -f "$HOME/sslcerts/fullchain.pem" ]]; then
+      mkdir -p $HOME/sslcerts
+      pwd=$(pwd)
+      cd $HOME/sslcerts
+      mkcert --cert-file fullchain.pem --key-file privkey.pem localhost 127.0.0.1
+      cd $pwd
+    else 
+      echo "IMPORTANT: sslcerts already exist in $HOME/sslcerts directory. We are not overwriting them."
+    fi
   else
     ip=$(getent hosts "$hostname" | awk '{ print $1 }')
 
@@ -80,24 +169,46 @@ if [ "$#" -eq 1 ]; then
     fi
   fi
 else
-  echo "Usage: $0 <hostname>"
-  echo "Please provide a hostname as an argument. This hostname will be where a running bbpro instance is accessible."
+  if [[ "$1" = "localhost" ]]; then
+    echo ""
+    echo "Usage: $0 <hostname>"
+    echo "Please provide a hostname as an argument. This hostname will be where a running bbpro instance is accessible." >&2
+    echo "Note that user email is not required as 2nd parameter when using localhost as we do not use Letsencrypt in that case." >&2
+  else 
+    echo ""
+    echo "Usage: $0 <hostname> <your_email>"
+    echo "Please provide a hostname as an argument. This hostname will be where a running bbpro instance is accessible." >&2
+    echo "Please provide an email as argument. This email will be used to agree to the Letsencrypt TOS for cert provisioning" >&2
+  fi
   exit 1
 fi
 
 echo -n "Finding bbpro directory..."
 
-INSTALL_DIR=$(get_install_dir)
+INSTALL_DIR=$(get_latest_dir)
 
 echo "Found bbpro at: $INSTALL_DIR"
+
+read_input "GO?"
 
 echo "Ensuring fully installed..."
 
 cd $INSTALL_DIR
 
+echo "Ensuring nvm installed..."
 install_nvm
+
+echo "Running npm install..."
+
 npm i
-npm run parcel
+
+echo "npm install complete"
+
+if [ "$IS_DOCKER_BUILD" = "true" ]; then
+  echo "In docker, not running parcel (it hangs sometimes!)"
+else 
+  npm run parcel
+fi
 
 if [ "$(os_type)" == "macOS" ]; then
   if brew install gnu-getopt; then
@@ -106,60 +217,20 @@ if [ "$(os_type)" == "macOS" ]; then
 else
   if ! command -v getopt &>/dev/null; then
     echo "Installing gnu-getopt for Linux..."
-    sudo apt-get update
-    sudo apt-get install -y gnu-getopt
+    $SUDO apt-get update
+    $SUDO apt-get install -y gnu-getopt
   fi
 fi
 
-read -p "Continue?"
+read_input "Continue?"
 
 echo "Fully installed!"
 
-echo -n "Copying bbpro application files to /usr/local/share/dosyago/ ..."
-sudo mkdir -p /usr/local/share/dosyago
-
-sudo cp -r $INSTALL_DIR /usr/local/share/dosyago
-INSTALL_NAME=$(basename $INSTALL_DIR)
-sudo rm -rf /usr/local/share/dosyago/$INSTALL_NAME/.git
-
-echo "Copied!"
-
-echo -n "Setting correct permissions for installation ... "
-
-sudo chmod -R 755 /usr/local/share/dosyago/*
-
-echo "Permissions set!"
-
-echo -n "Copying bbpro command to /usr/local/bin/ ..."
-
-sudo cp $INSTALL_DIR/deploy-scripts/_bbpro.sh /usr/local/bin/bbpro
-
-echo "Copied!"
-
-echo -n "Copying setup_bbpro command to /usr/local/bin/ ..."
-
-sudo cp $INSTALL_DIR/deploy-scripts/_setup_bbpro.sh /usr/local/bin/setup_bbpro
-
-echo "Copied!"
-
-echo -n "Copying monitoring commands to /usr/local/bin/ ..."
-
-sudo cp $INSTALL_DIR/monitor-scripts/* /usr/local/bin/
-
-echo "Copied!"
-
-echo -n "Copying sslcerts to /usr/local/share/dosyago/sslcerts ..."
-
-sudo mkdir -p /usr/local/share/dosyago/sslcerts/
-sudo rm -rf /usr/local/share/dosaygo/sslcerts/*
-sudo cp $HOME/sslcerts/* /usr/local/share/dosyago/sslcerts/
-sudo chmod -R 555 /usr/local/share/dosyago/sslcerts/*
-
-echo "Copied!"
+./deploy-scripts/copy_install.sh "$INSTALL_DIR"
 
 echo -n "Setting up deploy system ..."
 
-cd $INSTALL_DIR/deploy/
+cd $INSTALL_DIR/src/services/pool/deploy/
 ./scripts/setup.sh
 
 echo "Install complete!"

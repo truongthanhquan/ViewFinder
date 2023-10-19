@@ -1,1 +1,67 @@
 @import url("themes/blank.css");
+
+.status-bar {
+  vertical-align: super;
+  height: 15px;
+  max-height: 16px;
+  max-width: 350px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-bar.progress {
+  cursor: progress;
+}
+
+.download-count, .download-mb {
+  font-size: 10px;
+}
+
+.download-meter {
+  flex-grow: 1;
+  max-width: 100%;
+  width: 100px;
+}
+
+progress {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 0.5rem;
+  line-height: 1.3;
+  background: aquamarine;
+  --position: 0%;
+  --rotation: 45deg;
+}
+
+/* Chrome */
+progress::-webkit-progress-bar {
+  background: transparent;
+}
+
+progress::-webkit-progress-value {
+  background: linear-gradient(var(--rotation), rgba(255,255,255,0), rgba(255,255,255,0.5), rgba(255,255,255,0));
+  background-size: 200% 100%;
+  background-position: var(--position) 0;
+}
+
+progress::-moz-progress-bar {
+  background: linear-gradient(var(--rotation), rgba(255,255,255,0), rgba(255,255,255,0.5), rgba(255,255,255,0));
+  background-size: 200% 100%;
+  background-position: var(--position) 0;
+}
+
+@media screen and (max-width: 600px) {
+  .status-bar {
+    max-width: 38vw;
+    max-height: 16px;
+    overflow: hidden;
+  }
+  .wide-word {
+    display: none;
+  }
+  .download-count, .download-mb {
+  }
+}
+
+

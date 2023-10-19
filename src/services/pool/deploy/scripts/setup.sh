@@ -1,18 +1,40 @@
 #!/usr/bin/env bash
 
-curl -fsSL https://deb.nodesource.com/setup_19.x | sudo -E bash - 
-sudo apt-get install -y nodejs
-sudo which pm2 || bash -c "sudo npm i -g pm2@latest"
-echo -n "Set up quota user to have 5G 5G and 2m 2m block and inode limit."
-read -p " Enter to continue "
-sudo cp ./scripts/commands/* /usr/local/bin/
+SUDO=""
 
-# Edit the sudoers file to allow members of the "renice" group to run the "renice" command
-if ! sudo grep -q "%renice ALL=(ALL) NOPASSWD:" /etc/sudoers;
-then
-  sudo groupadd renice >&2
-  echo "%renice ALL=NOPASSWD: /usr/bin/renice, /usr/bin/loginctl, /usr/bin/id" | sudo tee -a /etc/sudoers >&2
+if command -v sudo; then
+  SUDO="sudo"
 fi
 
-sudo ./scripts/commands/newuser.sh quotauser
+if command -v node; then
+  echo "node installed"
+else
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | $SUDO -E bash -
+  $SUDO bash -c "source ~/.nvm/nvm.sh; nvm install stable"
+fi
+
+if ! command -v pm2; then
+  $SUDO bash -c "source ~/.nvm/nvm.sh; npm i -g pm2@latest"
+fi
+
+$SUDO cp ./scripts/commands/* /usr/local/bin/
+
+# Edit the $SUDOers file to allow members of the "renice" group to run the "renice" command
+if ! $SUDO grep -q "%renice ALL=(ALL) NOPASSWD:" /etc/sudoers;
+then
+  $SUDO groupadd renice >&2
+  echo "%renice ALL=NOPASSWD: /usr/bin/renice, /usr/bin/loginctl, /usr/bin/id" | $SUDO tee -a /etc/$SUDOers >&2
+fi
+
+
+if [ "$GITHUB_ACTIONS" == "true" ]; then
+  echo "we are in github action, and the doc viewer will not be accessible, so we don't set it up. This is normal."
+  exit 0
+fi
+
+#I don't think we need these anymore
+#echo -n "Set up quota user to have 5G 5G and 2m 2m block and inode limit."
+#read -p " Enter to continue "
+#$SUDO ./scripts/commands/newuser.sh quotauser
 

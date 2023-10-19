@@ -15,6 +15,7 @@ const MIN_WAIT = 50;
 const MAX_WAITS = 200;
 
 export const OPTIONS = {
+  showBWStatus: true,
   showAudioStatus: true,
   showWebRTCStatus: true,
   useSystemColorScheme: true,
@@ -22,6 +23,8 @@ export const OPTIONS = {
 };
 
 export const DEBUG = Object.freeze({
+  debugDownloadProgress: false,
+  logBandwidthIssueChanges: false,
   debugSafariWebRTC: false,
   debugSetup: false,
   /* debug connections */
@@ -52,7 +55,9 @@ export const DEBUG = Object.freeze({
   scaleImage: true,       // scaleImage: false centers the remote image if it's smaller than local viewport (large screens))
   dontEnforceOnlineCheck: true,
   newUI: true,
-  useWindowOpenForSecureView: true,
+  get useWindowOpenForSecureView() {
+    return true && ! deviceIsMobile();
+  },
   showCollect: false,
   debugFocus: false,
   debugAuth: false,
@@ -70,9 +75,9 @@ export const DEBUG = Object.freeze({
   debugFrameDrops: false,
   logFrameIds: false,
   dropFramesWhenDrawing: false,
-  ensureScroll: true,
+  ensureScroll: false,
   useDataURL: false,
-  noCollect: true, /* do not do buffered frame collection */
+  noCollect: false, /* do not do buffered frame collection */
   mobileUIDefault: true,  /* mobile UI defaults to true (visible) or false (not visible) */
   toggleUI: true,         /* switches toggle UI option on */
   get logMeta() {
@@ -136,6 +141,7 @@ export const CONFIG = Object.freeze({
   /* making this true means we don't check audio start on every tap or click BUT
    it does seem to interfere with audio restarting in the case it stops
   */
+  centerContextMenuOnMobile: true,
   get darkMode() {
     if ( OPTIONS.useSystemColorScheme ) {
       const isDark = globalThis.window.top.matchMedia("screen and (prefers-color-scheme: dark)");
@@ -143,6 +149,7 @@ export const CONFIG = Object.freeze({
     }
     return OPTIONS.useDarkMode;
   }, 
+  showModalOnFileDownload: false,
   settingsButton: false,
   useBlankWindowForProtocolLaunch: false,
   removeAudioStartHandlersAfterFirstStart: false, 

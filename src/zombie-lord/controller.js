@@ -1,6 +1,6 @@
 import Connect from './connection.js';
 import {getViewport} from './connection.js';
-import {CONFIG,COMMAND_MAX_WAIT,throwAfter, untilTrue, sleep, DEBUG} from '../common.js';
+import {CONFIG,COMMAND_MAX_WAIT,throwAfter, untilTrue, sleep, throttle, DEBUG} from '../common.js';
 import {MAX_FRAMES, MIN_TIME_BETWEEN_SHOTS, ACK_COUNT, MAX_ROUNDTRIP, MIN_SPOT_ROUNDTRIP, MIN_ROUNDTRIP, BUF_SEND_TIMEOUT, RACE_SAMPLE} from './screenShots.js';
 import fs from 'fs';
 
@@ -12,13 +12,24 @@ const connections = new Map();
 
 // Connection options
 const Options = {
-  adBlock: true,
+  adBlock: DEBUG.adBlock,
   demoBlock: false
 };
 
 //const TAIL_START = 100;
 //let lastTailShot = false;
 //let lastHash;
+let BANDWIDTH_ISSUE_STATE = false;
+const goLowRes = throttle((connection, ...args) => connection.shrinkImagery(...args), 8000);
+const goHighRes = throttle((connection, ...args) => connection.growImagery(...args), 8000); 
+const notifyBandwidthIssue = throttle(function (zombie_port, bandwidthIssue) {
+  DEBUG.debugAdaptiveImagery && console.log('Maybe notifying bwissue on ack', {bandwidthIssue});
+  if ( bandwidthIssue != BANDWIDTH_ISSUE_STATE ) {
+    controller_api.notifyBandwidthIssue(zombie_port, {issue: bandwidthIssue});
+    BANDWIDTH_ISSUE_STATE = bandwidthIssue;
+    DEBUG.debugAdaptiveImagery && console.log('Notified BW Issue');
+  }
+}, 1000);
 
 const controller_api = {
   zombieIsDead(port) {
@@ -37,7 +48,7 @@ const controller_api = {
       const meta = [...connection.favicons.entries()].map(([targetId, faviconDataUrl]) => ({favicon:{targetId, faviconDataUrl}}));
       if ( connection.modal ) {
         const {modal} = connection;
-        meta.push({modal});
+        connection.forceMeta({modal});
       }
       DEBUG.debugFaviconsSend && console.log(`Will send favicons`, meta);
       send({meta});
@@ -69,6 +80,7 @@ const controller_api = {
   async screenshotAck(connectionId, port, receivedFrameId, channel) {
     const {frameId, castSessionId} = receivedFrameId;
     const connection = connections.get(port);
+    let bandwidthIssue = false;
     //DEBUG.debugCast && console.log('Acking', connectionId, port, receivedFrameId);
     if ( connection ) {
       const channels = connection.links.get(connectionId);
@@ -122,7 +134,7 @@ const controller_api = {
           const sentAt = ack.sent.get(frameId);
           if ( sentAt ) {
             ack.sent.delete(frameId);
-            const roundtripTime = (ack.receivedAt - sentAt)/2;
+            const roundtripTime = (ack.receivedAt - sentAt);
             DEBUG.debugAdaptiveImagery && console.log({rtt:roundtripTime});
             ack.times.push(roundtripTime);
             ack.timeSum += roundtripTime;
@@ -133,68 +145,72 @@ const controller_api = {
             const avgRoundtrip = ack.timeSum / ack.times.length;
             DEBUG.debugAdaptiveImagery && console.log(`Average roundtrip time: ${avgRoundtrip}ms, actual: ${roundtripTime}ms`);
             if ( avgRoundtrip > MAX_ROUNDTRIP /*|| roundtripTime > MAX_ROUNDTRIP */ ) {
-              connection.shrinkImagery();
+              bandwidthIssue = true;
+              goLowRes(connection);
             } else if ( avgRoundtrip < MIN_ROUNDTRIP /*|| roundtripTime < MIN_SPOT_ROUNDTRIP */) {
-              connection.growImagery();
+              bandwidthIssue = false;
+              goHighRes(connection);
             }
           }
         }
 
-        if ( ack.sending ) return;
-        //DEBUG.debugCast && console.log("Sending frames", ack);
-        ack.sending = true;
+        if ( !ack.sending ) {
+          //DEBUG.debugCast && console.log("Sending frames", ack);
+          ack.sending = true;
 
-        await sleep(10);
+          await sleep(10);
 
-        while ( ack.count && DEBUG.bufSend && ack.bufSend && ack.buffer.length ) {
-          DEBUG.acks && console.log(`Got ack from ${connectionId} and have buffered unsent frame. Will send now.`);
+          while ( ack.count && DEBUG.bufSend && ack.bufSend && ack.buffer.length ) {
+            DEBUG.acks && console.log(`Got ack from ${connectionId} and have buffered unsent frame. Will send now.`);
 
-          const {peer, socket, fastest} = channels;
-          const channel = DEBUG.chooseFastest && fastest ? fastest : 
-            DEBUG.useWebRTC && peer ? peer : socket;
-          const [imgBuf, frameId] = ack.buffer.pop();
-          DEBUG.shotDebug && console.log('Sending', frameId);
-          connection.so(channel, imgBuf);
-          DEBUG.adaptiveImagery && ack.sent.set(frameId, Date.now());
+            const {peer, socket, fastest} = channels;
+            const channel = DEBUG.chooseFastest && fastest ? fastest : 
+              DEBUG.useWebRTC && peer ? peer : socket;
+            const [imgBuf, frameId] = ack.buffer.pop();
+            DEBUG.shotDebug && console.log('Sending', frameId);
+            connection.so(channel, imgBuf);
+            DEBUG.adaptiveImagery && ack.sent.set(frameId, Date.now());
 
-          if ( DEBUG.chooseFastest && DEBUG.useWebRTC && socket && peer ) {
-            const choice = Math.random() >= RACE_SAMPLE;
-            if ( choice ) {
-              const otherChannel = channel === peer ? socket : peer;
-              connection.so(otherChannel, imgBuf);
-              DEBUG.logFastest && console.log('Race started');
+            if ( DEBUG.chooseFastest && DEBUG.useWebRTC && socket && peer ) {
+              const choice = Math.random() >= RACE_SAMPLE;
+              if ( choice ) {
+                const otherChannel = channel === peer ? socket : peer;
+                connection.so(otherChannel, imgBuf);
+                DEBUG.logFastest && console.log('Race started');
+              }
+            }
+
+            //ack.bufSend = false;
+            ack.received = 0;
+            ack.count -= 1;
+            if ( ack.count < 0 ) {
+              ack.count = 0;
+              ack.buffer.length = 0;
+            }
+            await sleep(MIN_TIME_BETWEEN_SHOTS);
+          }
+
+          ack.sending = false;
+
+          if ( ack.sent.size > FRAME_GC_LIMIT ) {
+            for( const key of ack.sent.keys() ) {
+              if ( key < frameId ) ack.sent.delete(key);
             }
           }
 
-          //ack.bufSend = false;
-          ack.received = 0;
-          ack.count -= 1;
-          if ( ack.count < 0 ) {
-            ack.count = 0;
-            ack.buffer.length = 0;
-          }
-          await sleep(MIN_TIME_BETWEEN_SHOTS);
+          DEBUG.acks && console.log(`Set ack received ${connectionId}`);
         }
-
-        ack.sending = false;
-
-        if ( ack.sent.size > FRAME_GC_LIMIT ) {
-          for( const key of ack.sent.keys() ) {
-            if ( key < frameId ) ack.sent.delete(key);
-          }
-        }
-
-        DEBUG.acks && console.log(`Set ack received ${connectionId}`);
       } catch(e) {
         console.warn('screenshotAck error', e);
         ack.sending = false;
       }
+      notifyBandwidthIssue(port, bandwidthIssue);
     } else {
       throw new TypeError(`No connection on port ${port}`);
     }
   },
 
-  async addLink(so, {connectionId, peer, socket, fastest}, port) {
+  async addLink({so, forceMeta}, {connectionId, peer, socket, fastest}, port) {
     await untilTrue(() => connections.has(port), 100, 1000);
     const connection = connections.get(port);
     if ( connection ) {
@@ -250,6 +266,9 @@ const controller_api = {
       }
       if ( ! connection.so ) {
         connection.so = so;
+      }
+      if ( ! connection.forceMeta ) {
+        connection.forceMeta = forceMeta;
       }
       connection.doShot({forceFrame:true});
     } else {
@@ -397,7 +416,7 @@ const controller_api = {
             DEBUG.debugFavicon && console.log('Received message to Get Favicon', 
               {targetId, faviconDataUrl}, connection.favicons, command, connection.sessions);
             if ( faviconDataUrl ) {
-              connection.meta.push({
+              connection.forceMeta({
                 favicon: {
                   targetId,
                   faviconDataUrl
@@ -488,22 +507,24 @@ const controller_api = {
           }
           case "Connection.resampleImagery": {
             const {down, up, averageBw} = command.params;
-            if ( down ) {
-              connection.shrinkImagery({averageBw});
-            } else if ( up ) {
-              connection.growImagery({averageBw});
+            if ( DEBUG.adaptiveImagery ) {
+              if ( down ) {
+                goLowRes(connection, {averageBw});
+              } else if ( up ) {
+                goHighRes(connection, {averageBw});
+              }
             }
           }
           break;
           case "Connection.closeModal": {
-            connection.meta.push({
+            connection.forceMeta({
               closeModal: command.params
             });
             DEBUG.val && console.log(`received close modal and sent to clients`, command);
           }
           break;
           case "Connection.activateTarget": {
-            connection.meta.push({
+            connection.forceMeta({
               activateTarget: command.params
             });
             DEBUG.val && console.log(`received activateTarget and sent to clients`, command);
@@ -538,7 +559,7 @@ const controller_api = {
           );
           **/
           if ( response?.meta ) {
-            connection.meta.push(...response.meta);
+            connection.forceMeta(...response.meta);
           } else if ( response ) {
             retVal.data = response;
           } else {
@@ -603,6 +624,13 @@ const controller_api = {
       retVal.data.modal = connection.modal;
     }
     return retVal;
+  },
+
+  notifyBandwidthIssue(port, {issue}) {
+    const connection = connections.get(port);
+    if ( connection ) {
+      connection.forceMeta({bandwidthIssue: issue ? 'yes' : 'no'});
+    }
   },
 
   saveIP(ip_address) {

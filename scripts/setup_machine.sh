@@ -15,7 +15,6 @@ else
 	exit 1
 fi
 cd ../..
-sudo npm i -g node-dev nodemon
 sudo apt install -y libvips libjpeg-dev
 ./scripts/install_bundle_deps.sh
 ./scripts/install_global_bundle_deps.sh
@@ -32,7 +31,14 @@ sudo echo "KillUserProcesses=no" > /usr/local/lib/systemd/logind.conf.d/nokill.c
 
 sudo groupadd browsers
 sudo groupadd scripters
+# Edit the sudoers file to allow members of the "renice" group to run the "renice" command
+if ! sudo grep -q "%renice ALL=(ALL) NOPASSWD:" /etc/sudoers;
+then
+  sudo groupadd renice >&2
+  echo "%renice ALL=NOPASSWD: /usr/bin/renice, /usr/bin/loginctl, /usr/bin/id" | sudo tee -a /etc/sudoers >&2
+fi
+
 
 sudo ufw disable
-npm i -g pm2@latest
+which pm2 || npm i -g pm2@latest || sudo npm i -g pm2@latest
 sudo setcap 'cap_net_bind_service=+ep' $(which node)

@@ -1,8 +1,11 @@
 //import {CWebp} from 'cwebp';
 import {DEBUG, sleep, CONFIG} from '../common.js';
 
-export const JPEG_QUAL = 32;
-export const MAX_ACK_BUFFER = 2;
+const MIN_JPG_QUAL = 5;
+const MAX_JPG_QUAL = 80;
+const MAX_NTH_FRAME = 8;
+export const JPEG_QUAL = MAX_JPG_QUAL;
+export const MAX_ACK_BUFFER = 3;
 export const COMMON_FORMAT = Object.freeze({
   width: 1920,
   height: 1080,
@@ -31,21 +34,19 @@ const getScreenshotViewport = () => ({
 export const MIN_WIDTH = 300;
 export const MIN_HEIGHT = 300;
 export const WEBP_QUAL = 32;
-export const JPEG_WEBP_QUAL = 79;
+export const JPEG_WEBP_QUAL = MAX_JPG_QUAL;
 // these can be tuned UP on better bandwidth and DOWN on lower bandwidth
-export const ACK_COUNT = 2; // 5 with ack every 3 in client
+export const ACK_COUNT = process.platform == 'darwin' ? 1 : 2; // how many frames per ack? this should be adapted per link capacity
 export const MAX_FRAMES = 2; /* 1, 2, 4 */
-const MIN_JPG_QUAL = 25;
-const MAX_JPG_QUAL = 78;
-const MAX_NTH_FRAME = 3;
-export const MIN_TIME_BETWEEN_SHOTS = 50; /* 20, 40, 100, 250, 500 */
-export const MIN_TIME_BETWEEN_TAIL_SHOTS = 250;
-export const MAX_TIME_BETWEEN_TAIL_SHOTS = 3000;
-export const MAX_TIME_TO_WAIT_FOR_SCREENSHOT = 200;
-export const MAX_ROUNDTRIP = 325;
-export const MIN_ROUNDTRIP = 125;
-export const MIN_SPOT_ROUNDTRIP = 180;
-export const BUF_SEND_TIMEOUT = 415;
+export const MIN_TIME_BETWEEN_SHOTS = 40; /* 20, 40, 100, 250, 500 */
+export const MIN_TIME_BETWEEN_TAIL_SHOTS = 175;
+export const MAX_TIME_BETWEEN_TAIL_SHOTS = 4000;
+export const MAX_TIME_TO_WAIT_FOR_SCREENSHOT = 100;
+// local testing values so small haha
+export const MAX_ROUNDTRIP = DEBUG.localTestRTT ? 100 : 725;
+export const MIN_ROUNDTRIP = DEBUG.localTestRTT ? 80 : 600;
+export const MIN_SPOT_ROUNDTRIP = 125;
+export const BUF_SEND_TIMEOUT = 50;
 const NOIMAGE = {img: '', frame:0};
 const KEYS = [
   1, 11, 13, 629, 1229, 2046, 17912, 37953, 92194, 151840
@@ -84,8 +85,8 @@ export function makeCamera(connection) {
   let tailShot, tailShotDelay = MIN_TIME_BETWEEN_TAIL_SHOTS;
 
   const nextTailShot = async () => {
-    return;
     DEBUG.shotDebug && console.log("Tail shot");
+    return;
     tailShotDelay *= 1.618;
     if ( tailShotDelay < MAX_TIME_BETWEEN_TAIL_SHOTS ) {
       if ( tailShot ) {
@@ -147,17 +148,20 @@ export function makeCamera(connection) {
   }
 
   async function shrinkImagery() {
-    SAFARI_SHOT.command.params.quality -= 2;
-    SCREEN_OPTS.quality -= 2;
+    if ( SCREEN_OPTS.everyNthFrame >= MAX_NTH_FRAME && SCREEN_OPTS.quality <= MIN_JPG_QUAL ) {
+      // we don't go any lower
+      return;
+    }
+    SAFARI_SHOT.command.params.quality -= 20;
+    SCREEN_OPTS.quality -= 20;
     if ( SAFARI_SHOT.command.params.quality < MIN_JPG_QUAL ) {
       SAFARI_SHOT.command.params.quality = MIN_JPG_QUAL;
     }
     if ( SCREEN_OPTS.quality < MIN_JPG_QUAL ) {
       SCREEN_OPTS.quality = MIN_JPG_QUAL;
-      SCREEN_OPTS.everyNthFrame += 1;
+      SCREEN_OPTS.everyNthFrame += 2;
       if ( SCREEN_OPTS.everyNthFrame > MAX_NTH_FRAME ) {
         SCREEN_OPTS.everyNthFrame = MAX_NTH_FRAME;
-        return;
       }
       DEBUG.debugAdaptiveImagery && console.log(`Will only send every ${SCREEN_OPTS.everyNthFrame}th frame`);
     }
@@ -175,21 +179,22 @@ export function makeCamera(connection) {
   }
 
   async function growImagery() {
-    SAFARI_SHOT.command.params.quality += 2;
-    SCREEN_OPTS.quality += 2;
+    if ( SCREEN_OPTS.quality >= MAX_JPG_QUAL ) {
+      // we don't go any higher
+      return;
+    }
+
+    SAFARI_SHOT.command.params.quality = 80;
+    SCREEN_OPTS.quality = 80;
     if ( SAFARI_SHOT.command.params.quality > MAX_JPG_QUAL ) {
       SAFARI_SHOT.command.params.quality = MAX_JPG_QUAL;
     }
-    if ( SCREEN_OPTS.everyNthFrame > 1 ) {
-      SCREEN_OPTS.everyNthFrame -= 2;
-      if ( SCREEN_OPTS.everyNthFrame < 1 ) {
-        SCREEN_OPTS.everyNthFrame = 1;
-      }
+    if ( SCREEN_OPTS.everyNthFrame != 1 ) {
+      SCREEN_OPTS.everyNthFrame = 1;
       DEBUG.debugAdaptiveImagery && console.log(`Will now send every ${SCREEN_OPTS.everyNthFrame}th frame`);
     }
     if ( SCREEN_OPTS.quality > MAX_JPG_QUAL ) {
       SCREEN_OPTS.quality = MAX_JPG_QUAL;
-      return;
     }
     if ( DEBUG.debugAdaptiveImagery ) {
       console.log(`Growing JPEG quality to ${SAFARI_SHOT.command.params.quality}`);
@@ -338,7 +343,7 @@ export function makeCamera(connection) {
 
             if ( DEBUG.bufSend ) {
               ack.buffer.length = 0;
-              ack.bufSend = false;
+              //ack.bufSend = false;
               clearTimeout(ack.debounceBufSend);
               ack.debounceBufSend = setTimeout(() => ack.bufSend = true, BUF_SEND_TIMEOUT);
             }
